@@ -1,4 +1,4 @@
-package net.taskwolf.table;
+package net.taskwolf.table.structure;
 
 import com.google.common.collect.Lists;
 import net.taskwolf.core.database.*;

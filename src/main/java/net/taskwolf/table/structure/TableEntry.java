@@ -1,4 +1,4 @@
-package net.taskwolf.table;
+package net.taskwolf.table.structure;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
