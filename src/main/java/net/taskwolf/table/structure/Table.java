@@ -25,9 +25,9 @@ public final class Table extends DatabaseTable {
     super(connection, keyspace, name, columns);
   }
 
-  public CompletableFuture<TableRow> findContent(int limit, int page) {
-    //TODO: TO BE IMPLEMENTED
-    return null;
+  public CompletableFuture<List<TableRow>> findContent(int pageSize, int pageNumber) {
+    return selectPagesRows(pageSize, pageNumber).thenApply(rows ->
+      rows.stream().map(row -> TableRow.of(row, columns())).toList());
   }
 
   private CompletableFuture<List<DatabaseColumn>> findTableColumns() {

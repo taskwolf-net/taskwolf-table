@@ -1,8 +1,11 @@
 package net.taskwolf.table.structure;
 
+import com.google.common.collect.Lists;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
+import net.taskwolf.core.database.DatabaseColumn;
+import net.taskwolf.core.database.DatabaseRow;
 
 import java.util.List;
 
@@ -10,5 +13,14 @@ import java.util.List;
 @Accessors(fluent = true)
 @RequiredArgsConstructor(staticName = "create")
 public final class TableRow {
+  public static TableRow of(DatabaseRow row, List<DatabaseColumn> columns) {
+    var cells = Lists.<TableCell>newArrayList();
+    for (var i = 0; i < row.cellNumber(); i++) {
+      cells.add(i, TableCell.create(columns.get(i).name(),
+        row.findCell(i).value()));
+    }
+    return create(cells);
+  }
+
   private final List<TableCell> cells;
 }
