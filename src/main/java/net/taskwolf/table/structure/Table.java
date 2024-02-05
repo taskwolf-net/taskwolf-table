@@ -55,7 +55,7 @@ public final class Table extends DatabaseTable {
         columns.add(column);
       }
     }
-    columns.addFirst(primaryKeyColumn);
+    columns.add(0, primaryKeyColumn);
     return columns;
   }
 
