@@ -116,9 +116,12 @@ public final class TableInformationController extends TaskwolfRestController {
   ) {
     var result = Lists.<Map<String, Object>>newArrayList();
     for (var column : columns) {
+      if (column.name().equalsIgnoreCase("id")) {
+        continue;
+      }
       var columnInformation = Maps.<String, Object>newHashMap();
       columnInformation.put("name", column.name());
-      columnInformation.put("type", column.type());
+      columnInformation.put("type", column.dataType());
       result.add(columnInformation);
     }
     return result;
