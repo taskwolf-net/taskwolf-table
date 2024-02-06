@@ -2,9 +2,11 @@ package net.taskwolf.table.structure;
 
 import com.google.inject.Singleton;
 import com.google.inject.name.Named;
+import net.taskwolf.core.database.DatabaseColumn;
 import net.taskwolf.core.database.DatabaseConnection;
 import net.taskwolf.core.database.DatabaseKeyspace;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -23,5 +25,9 @@ public final class TableFactory {
 
   public CompletableFuture<Table> create(UUID id) {
     return Table.create(tableConnection, tableKeyspace, id);
+  }
+
+  public Table create(UUID id, List<DatabaseColumn> columns) {
+    return Table.create(tableConnection, tableKeyspace, id, columns);
   }
 }

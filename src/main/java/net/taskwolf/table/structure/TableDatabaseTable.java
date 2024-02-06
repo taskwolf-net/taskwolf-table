@@ -55,6 +55,15 @@ public final class TableDatabaseTable extends DatabaseTable {
     update(DatabaseCell.create(entry.id()), DatabaseRow.of(entry.id()));
   }
 
+  public CompletableFuture<UUID> generateAvailableTableId() {
+    var futureResponse = new CompletableFuture<UUID>();
+    var id = UUID.randomUUID();
+    tableExists(id).thenApply(exists -> exists ?
+      generateAvailableTableId().thenApply(futureResponse::complete) :
+      CompletableFuture.completedFuture(futureResponse.complete(id)));
+    return futureResponse;
+  }
+
   public CompletableFuture<Boolean> tableExists(UUID id) {
     return exists(DatabaseCell.create(id));
   }

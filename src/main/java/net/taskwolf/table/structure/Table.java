@@ -18,6 +18,14 @@ public final class Table extends DatabaseTable {
       .thenApply(value -> table);
   }
 
+  public static Table create(
+    DatabaseConnection connection, DatabaseKeyspace keyspace, UUID id,
+    List<DatabaseColumn> columns
+  ) {
+    return new Table(connection, keyspace, id.toString(),
+      columns);
+  }
+
   private Table(
     DatabaseConnection connection, DatabaseKeyspace keyspace, String name,
     List<DatabaseColumn> columns
