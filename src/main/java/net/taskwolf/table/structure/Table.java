@@ -33,9 +33,24 @@ public final class Table extends DatabaseTable {
     super(connection, keyspace, name, columns);
   }
 
-  public CompletableFuture<List<TableRow>> findContent(int pageSize, int pageNumber) {
+  public void insertContent(TableRow row) {
+    var cells = row.cells();
+    var values = new Object[row.cells().size()];
+    for (var i = 0; i < cells.size(); i++) {
+      values[i] = cells.get(i).value();
+    }
+    insert(DatabaseRow.of(values));
+  }
+
+  public CompletableFuture<List<TableRow>> findContent(
+    int pageSize, int pageNumber
+  ) {
     return selectPagesRows(pageSize, pageNumber).thenApply(rows ->
       rows.stream().map(row -> TableRow.of(row, columns())).toList());
+  }
+
+  public void deleteContent(UUID id) {
+    delete(DatabaseCell.create(id));
   }
 
   private CompletableFuture<List<DatabaseColumn>> findTableColumns() {
