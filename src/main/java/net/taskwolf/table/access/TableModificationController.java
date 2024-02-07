@@ -8,10 +8,7 @@ import net.taskwolf.core.database.DatabaseDataType;
 import net.taskwolf.core.database.DatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
-import net.taskwolf.table.structure.Table;
-import net.taskwolf.table.structure.TableDatabaseTable;
-import net.taskwolf.table.structure.TableEntry;
-import net.taskwolf.table.structure.TableFactory;
+import net.taskwolf.table.structure.*;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -57,6 +54,36 @@ public final class TableModificationController extends TaskwolfRestController {
       DatabaseColumn.Type.PRIMARY_KEY);
     var table = tableFactory.create(tableId, Lists.newArrayList(defaultColumn));
     table.createIfNotExists();
+  }
+
+  @RequestMapping(path = "/table/entry/insert/", method = RequestMethod.POST)
+  public void insertTableEntry(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var tableId = UUID.fromString((String) input.get("table"));
+    var rowContent = (Map<String, Object>) input.get("row");
+    performTableOperation(findUserId(request), tableId, tableEntry ->
+      tableFactory.create(tableId).thenAccept(table ->
+        insertTableEntry(table, rowContent)));
+  }
+
+  private void insertTableEntry(Table table, Map<String, Object> rowContent) {
+    var cells = Lists.<TableCell>newArrayList();
+    for (var entry : rowContent.entrySet()) {
+      cells.add(TableCell.create(entry.getKey(), entry.getValue()));
+    }
+    table.insertContent(TableRow.create(cells));
+  }
+
+  @RequestMapping(path = "/table/entry/remove/", method = RequestMethod.POST)
+  public void removeTableEntry(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var tableId = UUID.fromString((String) input.get("table"));
+    var rowId =  UUID.fromString((String) input.get("row"));
+    performTableOperation(findUserId(request), tableId, tableEntry ->
+      tableFactory.create(tableId).thenAccept(table ->
+        table.removeContent(rowId)));
   }
 
   @RequestMapping(path = "/table/column/add/", method = RequestMethod.POST)
