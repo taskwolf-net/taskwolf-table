@@ -1,5 +1,6 @@
 package net.taskwolf.table.structure;
 
+import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.google.inject.name.Named;
 import net.taskwolf.core.database.DatabaseColumn;
@@ -15,6 +16,7 @@ public final class TableFactory {
   private final DatabaseConnection tableConnection;
   private final DatabaseKeyspace tableKeyspace;
 
+  @Inject
   private TableFactory(
     @Named("tableConnection") DatabaseConnection tableConnection,
     @Named("tableKeyspace") DatabaseKeyspace tableKeyspace
