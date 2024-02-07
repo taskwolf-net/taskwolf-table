@@ -5,6 +5,7 @@ import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.database.DatabaseColumn;
+import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.table.structure.*;
@@ -40,9 +41,19 @@ public final class TableInformationController extends TaskwolfRestController {
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     userTargetDatabaseTable.findTargetSecured(findUserId(request)).thenAccept(
-      target -> tableDatabaseTable.findTablesOfOwner(target).thenAccept(tables ->
-        futureResponse.complete(Map.of("tables", tables.stream()
-          .map(this::superficialTableInformation).toList()))));
+      target -> tableDatabaseTable.findTablesOfOwner(target).thenAccept(entries ->
+        findTables(entries).thenAccept(futureResponse::complete)));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> findTables(
+    List<TableEntry> entries
+  ) {
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    AsyncIterator.execute(entries, entry -> tableFactory.create(entry.id())
+        .thenCompose(table -> table.countRows().thenApply(rows ->
+          superficialTableInformation(entry, rows))),
+      entries.size(), tables -> futureResponse.complete(Map.of("tables", tables)));
     return futureResponse;
   }
 
@@ -86,10 +97,13 @@ public final class TableInformationController extends TaskwolfRestController {
     return futureResponse;
   }
 
-  private Map<String, Object> superficialTableInformation(TableEntry table) {
+  private Map<String, Object> superficialTableInformation(
+    TableEntry entry, long rowNumber
+  ) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("id", table.id());
-    information.put("title", table.name());
+    information.put("id", entry.id());
+    information.put("title", entry.name());
+    information.put("size", rowNumber);
     return information;
   }
 
@@ -105,7 +119,7 @@ public final class TableInformationController extends TaskwolfRestController {
   private Map<String, Object> assemblyDetailedTableInformation(
     TableEntry entry, Table table, List<TableRow> rows
   ) {
-    var information = superficialTableInformation(entry);
+    var information = superficialTableInformation(entry, table);
     information.put("columns", assemblyTableColumnsInformation(table.columns()));
     information.put("rows", assemblyTableRowsInformation(rows));
     return information;
