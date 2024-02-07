@@ -112,14 +112,16 @@ public final class TableInformationController extends TaskwolfRestController {
   private CompletableFuture<Map<String, Object>> detailedTableInformation(
     TableEntry entry, Table table, int page
   ) {
-    return table.findContent(TABLE_PAGE_SIZE, page).thenApply(rows ->
-      assemblyDetailedTableInformation(entry, table, rows));
+    return table.countRows().thenCompose(rowNumber ->
+      table.findContent(TABLE_PAGE_SIZE, page).thenApply(rows ->
+        assemblyDetailedTableInformation(entry, table, rowNumber, page, rows)));
   }
 
   private Map<String, Object> assemblyDetailedTableInformation(
-    TableEntry entry, Table table, List<TableRow> rows
+    TableEntry entry, Table table, long totalRowNumber, int page,
+    List<TableRow> rows
   ) {
-    var information = superficialTableInformation(entry, table);
+    var information = superficialTableInformation(entry, totalRowNumber);
     information.put("columns", assemblyTableColumnsInformation(table.columns()));
     information.put("rows", assemblyTableRowsInformation(rows));
     return information;
