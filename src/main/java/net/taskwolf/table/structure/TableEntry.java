@@ -12,12 +12,12 @@ import java.util.UUID;
 @AllArgsConstructor(staticName = "create")
 public final class TableEntry {
   public static TableEntry of(DatabaseRow row) {
-    return create(row.findCell(0).uuidValue(), row.findCell(1).uuidValue(),
+    return create(row.findCell(0).stringValue(), row.findCell(1).uuidValue(),
       row.findCell(2).uuidValue(), row.findCell(3).stringValue(),
       row.findCell(4).longValue());
   }
 
-  private final UUID id;
+  private final String id;
   private final UUID owner;
   private final UUID creator;
   private String name;

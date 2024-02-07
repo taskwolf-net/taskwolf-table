@@ -15,7 +15,7 @@ public final class TableDatabaseTable extends DatabaseTable {
     DatabaseConnection connection, DatabaseKeyspace keyspace
   ) {
     var columns = Lists.<DatabaseColumn>newArrayList();
-    columns.add(DatabaseColumn.create("id", DatabaseDataType.UUID,
+    columns.add(DatabaseColumn.create("id", DatabaseDataType.TEXT,
       DatabaseColumn.Type.PRIMARY_KEY));
     columns.add(DatabaseColumn.create("owner", DatabaseDataType.UUID));
     columns.add(DatabaseColumn.create("creator", DatabaseDataType.UUID));
@@ -37,12 +37,12 @@ public final class TableDatabaseTable extends DatabaseTable {
   }
 
   public void insertTable(
-    UUID id, UUID owner, UUID creator, String name, long created
+    String id, UUID owner, UUID creator, String name, long created
   ) {
     insert(DatabaseRow.of(id, owner, creator, name, created));
   }
 
-  public void changeTableName(UUID id, String name) {
+  public void changeTableName(String id, String name) {
     findTable(id).thenAccept(table -> changeTableName(table, name));
   }
 
@@ -55,20 +55,20 @@ public final class TableDatabaseTable extends DatabaseTable {
     update(DatabaseCell.create(entry.id()), DatabaseRow.of(entry.id()));
   }
 
-  public CompletableFuture<UUID> generateAvailableTableId() {
-    var futureResponse = new CompletableFuture<UUID>();
-    var id = UUID.randomUUID();
+  public CompletableFuture<String> generateAvailableTableId() {
+    var futureResponse = new CompletableFuture<String>();
+    var id = UUID.randomUUID().toString().replace("-", "");
     tableExists(id).thenApply(exists -> exists ?
       generateAvailableTableId().thenApply(futureResponse::complete) :
       CompletableFuture.completedFuture(futureResponse.complete(id)));
     return futureResponse;
   }
 
-  public CompletableFuture<Boolean> tableExists(UUID id) {
+  public CompletableFuture<Boolean> tableExists(String id) {
     return exists(DatabaseCell.create(id));
   }
 
-  public void deleteTable(UUID id) {
+  public void deleteTable(String id) {
     delete(DatabaseCell.create(id));
   }
 
@@ -77,7 +77,7 @@ public final class TableDatabaseTable extends DatabaseTable {
       rows.stream().map(TableEntry::of).collect(Collectors.toList()));
   }
 
-  public CompletableFuture<TableEntry> findTable(UUID id) {
+  public CompletableFuture<TableEntry> findTable(String id) {
     return selectRow(DatabaseCell.create(id)).thenApply(TableEntry::of);
   }
 }

@@ -62,7 +62,7 @@ public final class TableInformationController extends TaskwolfRestController {
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var tableId = UUID.fromString((String) input.get("table"));
+    var tableId = (String) input.get("table");
     var page = Integer.parseInt((String) input.get("page"));
     var userId = findUserId(request);
     tableDatabaseTable.tableExists(tableId).thenAccept(exists ->
@@ -71,7 +71,7 @@ public final class TableInformationController extends TaskwolfRestController {
   }
 
   private CompletableFuture<Map<String, Object>> findTable(
-    UUID userId, UUID tableId, int page, boolean exists
+    UUID userId, String tableId, int page, boolean exists
   ) {
     if (!exists) {
       return CompletableFuture.completedFuture(Maps.newHashMap());

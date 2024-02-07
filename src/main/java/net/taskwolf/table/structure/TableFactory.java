@@ -25,11 +25,11 @@ public final class TableFactory {
     this.tableKeyspace = tableKeyspace;
   }
 
-  public CompletableFuture<Table> create(UUID id) {
+  public CompletableFuture<Table> create(String id) {
     return Table.create(tableConnection, tableKeyspace, id);
   }
 
-  public Table create(UUID id, List<DatabaseColumn> columns) {
+  public Table create(String id, List<DatabaseColumn> columns) {
     return Table.create(tableConnection, tableKeyspace, id, columns);
   }
 }

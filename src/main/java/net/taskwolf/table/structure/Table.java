@@ -10,20 +10,18 @@ import java.util.concurrent.CompletableFuture;
 
 public final class Table extends DatabaseTable {
   public static CompletableFuture<Table> create(
-    DatabaseConnection connection, DatabaseKeyspace keyspace, UUID id
+    DatabaseConnection connection, DatabaseKeyspace keyspace, String id
   ) {
-    var table = new Table(connection, keyspace, id.toString(),
-      Lists.newArrayList());
+    var table = new Table(connection, keyspace, id, Lists.newArrayList());
     return table.findTableColumns().thenAccept(table::fillColumns)
       .thenApply(value -> table);
   }
 
   public static Table create(
-    DatabaseConnection connection, DatabaseKeyspace keyspace, UUID id,
+    DatabaseConnection connection, DatabaseKeyspace keyspace, String id,
     List<DatabaseColumn> columns
   ) {
-    return new Table(connection, keyspace, id.toString(),
-      columns);
+    return new Table(connection, keyspace, id, columns);
   }
 
   private Table(

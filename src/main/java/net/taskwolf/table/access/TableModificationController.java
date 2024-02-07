@@ -47,7 +47,7 @@ public final class TableModificationController extends TaskwolfRestController {
         createTable(tableId, target, userId, tableName)));
   }
 
-  private void createTable(UUID tableId, UUID owner, UUID creator, String name) {
+  private void createTable(String tableId, UUID owner, UUID creator, String name) {
     tableDatabaseTable.insertTable(tableId, owner, creator, name,
       System.currentTimeMillis());
     var defaultColumn = DatabaseColumn.create("id", DatabaseDataType.UUID,
@@ -60,7 +60,7 @@ public final class TableModificationController extends TaskwolfRestController {
   public void insertTableEntry(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
-    var tableId = UUID.fromString((String) input.get("table"));
+    var tableId = (String) input.get("table");
     var rowContent = (Map<String, Object>) input.get("row");
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableId).thenAccept(table ->
@@ -79,7 +79,7 @@ public final class TableModificationController extends TaskwolfRestController {
   public void removeTableEntry(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
-    var tableId = UUID.fromString((String) input.get("table"));
+    var tableId = (String) input.get("table");
     var rowId =  UUID.fromString((String) input.get("row"));
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableId).thenAccept(table ->
@@ -90,7 +90,7 @@ public final class TableModificationController extends TaskwolfRestController {
   public void addTableColumn(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
-    var tableId = UUID.fromString((String) input.get("table"));
+    var tableId = (String) input.get("table");
     var columnName = (String) input.get("columnName");
     if (columnName.equalsIgnoreCase("id")) {
       return;
@@ -111,7 +111,7 @@ public final class TableModificationController extends TaskwolfRestController {
   public void removeTableColumn(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
-    var tableId = UUID.fromString((String) input.get("table"));
+    var tableId = (String) input.get("table");
     var columnName = (String) input.get("columnName");
     if (columnName.equalsIgnoreCase("id")) {
       return;
@@ -132,7 +132,7 @@ public final class TableModificationController extends TaskwolfRestController {
   public void renameTableColumn(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
-    var tableId = UUID.fromString((String) input.get("table"));
+    var tableId = (String) input.get("table");
     var oldColumnName = (String) input.get("oldColumnName");
     var newColumnName = (String) input.get("newColumnName");
     if (oldColumnName.equalsIgnoreCase("id") || newColumnName.equalsIgnoreCase("id")) {
@@ -159,7 +159,7 @@ public final class TableModificationController extends TaskwolfRestController {
   public void deleteTable(
     HttpServletRequest request, @RequestBody Map<String, Object> input
   ) {
-    var tableId = UUID.fromString((String) input.get("table"));
+    var tableId = (String) input.get("table");
     performTableOperation(findUserId(request), tableId, this::deleteTable);
   }
 
@@ -170,7 +170,7 @@ public final class TableModificationController extends TaskwolfRestController {
   }
 
   private void performTableOperation(
-    UUID userId, UUID tableId, Consumer<TableEntry> operation
+    UUID userId, String tableId, Consumer<TableEntry> operation
   ) {
     userTargetDatabaseTable.findTarget(userId).thenAccept(target ->
       tableDatabaseTable.tableExists(tableId).thenAccept(exists ->
@@ -178,7 +178,7 @@ public final class TableModificationController extends TaskwolfRestController {
   }
 
   private void performTableOperation(
-    UUID target, UUID tableId, boolean tableExists, Consumer<TableEntry> operation
+    UUID target, String tableId, boolean tableExists, Consumer<TableEntry> operation
   ) {
     if (!tableExists) {
       return;
