@@ -31,7 +31,7 @@ public class TableInjectionModule extends AbstractModule {
   DatabaseKeyspace provideTableKeyspace(
     @Named("tableConnection") DatabaseConnection connection
   ) {
-    var tableKeyspace = DatabaseKeyspace.create(connection, "table",
+    var tableKeyspace = DatabaseKeyspace.create(connection, "taskwolf_user_table",
       "SimpleStrategy", 1);
     tableKeyspace.createIfNotExists();
     tableKeyspace.use();
