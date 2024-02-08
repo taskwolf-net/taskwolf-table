@@ -51,8 +51,9 @@ public final class TableInformationController extends TaskwolfRestController {
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     AsyncIterator.execute(entries, entry -> tableFactory.create(entry.id())
-        .thenCompose(table -> table.countRows().thenApply(rows ->
-          superficialTableInformation(entry, rows))),
+        .thenCompose(table -> table.count().thenCompose(rows ->
+          table.averageRowSize().thenApply(averageRowSize ->
+            superficialTableInformation(entry, rows, averageRowSize)))),
       entries.size(), tables -> futureResponse.complete(Map.of("tables", tables)));
     return futureResponse;
   }
@@ -98,13 +99,23 @@ public final class TableInformationController extends TaskwolfRestController {
   }
 
   private Map<String, Object> superficialTableInformation(
-    TableEntry entry, long rowNumber
+    TableEntry entry, long rowNumber, long averageRowSize
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", entry.id());
-    information.put("title", entry.name());
-    information.put("size", rowNumber);
+    information.put("name", entry.name());
+    information.put("entries", rowNumber);
+    information.put("size", formatByteSize(rowNumber * averageRowSize));
     return information;
+  }
+
+  private String formatByteSize(long size) {
+    if (size < 1024) {
+      return size + " B";
+    }
+    int z = (63 - Long.numberOfLeadingZeros(size)) / 10;
+    return String.format("%.1f %sB", (double) size / (1L << (z * 10)),
+      " KMGTPE".charAt(z));
   }
 
   private static final int TABLE_PAGE_SIZE = 10;
@@ -112,16 +123,18 @@ public final class TableInformationController extends TaskwolfRestController {
   private CompletableFuture<Map<String, Object>> detailedTableInformation(
     TableEntry entry, Table table, int page
   ) {
-    return table.countRows().thenCompose(rowNumber ->
-      table.findContent(TABLE_PAGE_SIZE, page).thenApply(rows ->
-        assemblyDetailedTableInformation(entry, table, rowNumber, page, rows)));
+    return table.count().thenCompose(rowNumber -> table.averageRowSize()
+      .thenCompose(averageRowSize -> table.findContent(TABLE_PAGE_SIZE, page)
+        .thenApply(rows -> assemblyDetailedTableInformation(entry, table,
+          rowNumber, averageRowSize, page, rows))));
   }
 
   private Map<String, Object> assemblyDetailedTableInformation(
-    TableEntry entry, Table table, long totalRowNumber, int page,
-    List<TableRow> rows
+    TableEntry entry, Table table, long totalRowNumber, long averageRowSize,
+    int page, List<TableRow> rows
   ) {
-    var information = superficialTableInformation(entry, totalRowNumber);
+    var information = superficialTableInformation(entry, totalRowNumber,
+      averageRowSize);
     information.put("columns", assemblyTableColumnsInformation(table.columns()));
     information.put("rows", assemblyTableRowsInformation(rows));
     return information;
