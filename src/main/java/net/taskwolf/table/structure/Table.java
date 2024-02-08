@@ -47,10 +47,6 @@ public final class Table extends DatabaseTable {
       rows.stream().map(row -> TableRow.of(row, columns())).toList());
   }
 
-  public CompletableFuture<Long> countRows() {
-    return count();
-  }
-
   public void removeContent(UUID id) {
     delete(DatabaseCell.create(id));
   }
