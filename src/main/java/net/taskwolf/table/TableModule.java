@@ -22,6 +22,8 @@ import java.util.List;
   priority = ModuleLoadPriority.NEUTRAL)
 public final class TableModule extends Module {
   private Log log;
+  private SpringApplication springApplication;
+  private TableContextInitializer contextInitializer;
   private TriggerFactory triggerFactory;
   private ActionFactory actionFactory;
   private AccountLink accountLink;
@@ -33,8 +35,9 @@ public final class TableModule extends Module {
   @Override
   public void enable() throws Exception {
     log = injector().getInstance(Log.class).subLog("Table");
-    injector().getInstance(SpringApplication.class).addInitializers(
-      injector().getInstance(TableContextInitializer.class));
+    springApplication = injector().getInstance(SpringApplication.class);
+    contextInitializer = injector().getInstance(TableContextInitializer.class);
+    springApplication.addInitializers(contextInitializer);
     triggerFactory = TableTriggerFactory.create();
     actionFactory = TableActionFactory.create();
     accountLink = TableAccountLink.create();
@@ -42,7 +45,9 @@ public final class TableModule extends Module {
 
   @Override
   public void disable() {
-
+    var initializers = Lists.newArrayList(springApplication.getInitializers());
+    initializers.remove(contextInitializer);
+    springApplication.setInitializers(initializers);
   }
 
   @Override
