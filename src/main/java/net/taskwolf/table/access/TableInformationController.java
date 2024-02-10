@@ -84,7 +84,6 @@ public final class TableInformationController extends TaskwolfRestController {
     return futureResponse;
   }
 
-
   private CompletableFuture<Map<String, Object>> findTable(
     TableEntry entry, UUID target, int page
   ) {
