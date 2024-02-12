@@ -68,7 +68,7 @@ public final class TableDatabaseTable extends DatabaseTable {
     return futureResponse;
   }
 
-  private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  private static final String CHARACTERS = "abcdefghijklmnopqrstuvwxyz";
 
   private String createTableId() {
     var value = new StringBuilder();
