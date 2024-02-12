@@ -4,6 +4,7 @@ import com.google.common.collect.Lists;
 import net.taskwolf.core.database.*;
 
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -23,6 +24,8 @@ public final class TableDatabaseTable extends DatabaseTable {
     columns.add(DatabaseColumn.create("created", DatabaseDataType.BIGINT));
     return new TableDatabaseTable(connection, keyspace, TABLE_NAME, columns);
   }
+
+  private final Random random = new Random();
 
   private TableDatabaseTable(
     DatabaseConnection connection, DatabaseKeyspace keyspace, String name,
@@ -58,11 +61,21 @@ public final class TableDatabaseTable extends DatabaseTable {
 
   public CompletableFuture<String> generateAvailableTableId() {
     var futureResponse = new CompletableFuture<String>();
-    var id = UUID.randomUUID().toString().replace("-", "");
+    var id = createTableId();
     tableExists(id).thenApply(exists -> exists ?
       generateAvailableTableId().thenApply(futureResponse::complete) :
       CompletableFuture.completedFuture(futureResponse.complete(id)));
     return futureResponse;
+  }
+
+  private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+  private String createTableId() {
+    var value = new StringBuilder();
+    for (int i = 0; i < 32; i++) {
+      value.append(CHARACTERS.charAt(random.nextInt(CHARACTERS.length())));
+    }
+    return value.toString();
   }
 
   public CompletableFuture<Boolean> tableExists(String id) {
