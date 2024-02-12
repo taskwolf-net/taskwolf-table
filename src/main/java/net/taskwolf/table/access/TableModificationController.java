@@ -50,9 +50,10 @@ public final class TableModificationController extends TaskwolfRestController {
   private void createTable(String tableId, UUID owner, UUID creator, String name) {
     tableDatabaseTable.insertTable(tableId, owner, creator, name,
       System.currentTimeMillis());
-    var defaultColumn = DatabaseColumn.create("id", DatabaseDataType.UUID,
-      DatabaseColumn.Type.PRIMARY_KEY);
-    var table = tableFactory.create(tableId, Lists.newArrayList(defaultColumn));
+    var defaultColumns = Lists.newArrayList(DatabaseColumn.create("id",
+      DatabaseDataType.UUID, DatabaseColumn.Type.PRIMARY_KEY),
+      DatabaseColumn.create("data", DatabaseDataType.TEXT));
+    var table = tableFactory.create(tableId, defaultColumns);
     table.createIfNotExists();
   }
 
