@@ -138,6 +138,9 @@ public final class TableModificationController extends TaskwolfRestController {
     if (oldColumnName.equalsIgnoreCase("id") || newColumnName.equalsIgnoreCase("id")) {
       return;
     }
+    if (newColumnName.replace(" ", "").isEmpty()) {
+      return;
+    }
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableId).thenAccept(table ->
         renameTableColumn(table, oldColumnName, newColumnName)));
@@ -153,6 +156,19 @@ public final class TableModificationController extends TaskwolfRestController {
       return;
     }
     table.renameColumn(oldColumnName, newColumnName);
+  }
+
+  @RequestMapping(path = "/table/rename/", method = RequestMethod.POST)
+  public void renameTable(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var tableId = (String) input.get("table");
+    var tableName = (String) input.get("name");
+    if (tableName.replace(" ", "").isEmpty()) {
+      return;
+    }
+    performTableOperation(findUserId(request), tableId, table ->
+      tableDatabaseTable.changeTableName(table.id(), tableName));
   }
 
   @RequestMapping(path = "/table/delete/", method = RequestMethod.POST)

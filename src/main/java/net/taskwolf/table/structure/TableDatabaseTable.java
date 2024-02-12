@@ -52,7 +52,8 @@ public final class TableDatabaseTable extends DatabaseTable {
   }
 
   private void updateTable(TableEntry entry) {
-    update(DatabaseCell.create(entry.id()), DatabaseRow.of(entry.id()));
+    update(DatabaseCell.create(entry.id()), DatabaseRow.of(entry.id(),
+      entry.owner(), entry.creator(), entry.name(), entry.created()));
   }
 
   public CompletableFuture<String> generateAvailableTableId() {
