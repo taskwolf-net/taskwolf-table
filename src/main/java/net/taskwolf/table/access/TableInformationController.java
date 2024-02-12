@@ -64,7 +64,7 @@ public final class TableInformationController extends TaskwolfRestController {
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     var tableId = (String) input.get("table");
-    var page = Integer.parseInt((String) input.get("page"));
+    var page = (int) input.get("page");
     var userId = findUserId(request);
     tableDatabaseTable.tableExists(tableId).thenAccept(exists ->
       findTable(userId, tableId, page, exists).thenAccept(futureResponse::complete));
@@ -117,7 +117,7 @@ public final class TableInformationController extends TaskwolfRestController {
       " KMGTPE".charAt(z));
   }
 
-  private static final int TABLE_PAGE_SIZE = 10;
+  private static final int TABLE_PAGE_SIZE = 5;
 
   private CompletableFuture<Map<String, Object>> detailedTableInformation(
     TableEntry entry, Table table, int page
