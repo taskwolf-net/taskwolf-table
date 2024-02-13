@@ -65,11 +65,15 @@ public final class TableModificationController extends TaskwolfRestController {
     var rowContent = (Map<String, Object>) input.get("row");
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableId).thenAccept(table ->
-        insertTableEntry(table, rowContent)));
+        table.generateAvailableContentId().thenAccept(contentId ->
+          insertTableEntry(table, contentId, rowContent))));
   }
 
-  private void insertTableEntry(Table table, Map<String, Object> rowContent) {
+  private void insertTableEntry(
+    Table table, UUID contentId, Map<String, Object> rowContent
+  ) {
     var cells = Lists.<TableCell>newArrayList();
+    cells.add(TableCell.create("id", contentId));
     for (var entry : rowContent.entrySet()) {
       cells.add(TableCell.create(entry.getKey(), entry.getValue()));
     }
