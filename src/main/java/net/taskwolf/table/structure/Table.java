@@ -40,6 +40,19 @@ public final class Table extends DatabaseTable {
     insert(DatabaseRow.of(values));
   }
 
+  public CompletableFuture<UUID> generateAvailableContentId() {
+    var futureResponse = new CompletableFuture<UUID>();
+    var id = UUID.randomUUID();
+    contentExists(id).thenApply(exists -> exists ?
+      generateAvailableContentId().thenApply(futureResponse::complete) :
+      CompletableFuture.completedFuture(futureResponse.complete(id)));
+    return futureResponse;
+  }
+
+  public CompletableFuture<Boolean> contentExists(UUID id) {
+    return exists(DatabaseCell.create(id));
+  }
+
   public CompletableFuture<List<TableRow>> findContent(
     int pageSize, int pageNumber
   ) {
