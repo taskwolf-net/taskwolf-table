@@ -80,6 +80,29 @@ public final class TableModificationController extends TaskwolfRestController {
     table.insertContent(TableRow.create(cells));
   }
 
+  @RequestMapping(path = "/table/entry/update/", method = RequestMethod.POST)
+  public void updateTableEntry(
+    HttpServletRequest request, @RequestBody Map<String, Object> input
+  ) {
+    var tableId = (String) input.get("table");
+    var rowId =  UUID.fromString((String) input.get("row"));
+    var rowContent = (Map<String, Object>) input.get("content");
+    performTableOperation(findUserId(request), tableId, tableEntry ->
+      tableFactory.create(tableId).thenAccept(table ->
+          insertTableEntry(table, rowId, rowContent)));
+  }
+
+  private void updateTableEntry(
+    Table table, UUID rowId, Map<String, Object> rowContent
+  ) {
+    var cells = Lists.<TableCell>newArrayList();
+    cells.add(TableCell.create("id", rowId));
+    for (var entry : rowContent.entrySet()) {
+      cells.add(TableCell.create(entry.getKey(), entry.getValue()));
+    }
+    table.updateContent(rowId, TableRow.create(cells));
+  }
+
   @RequestMapping(path = "/table/entry/remove/", method = RequestMethod.POST)
   public void removeTableEntry(
     HttpServletRequest request, @RequestBody Map<String, Object> input

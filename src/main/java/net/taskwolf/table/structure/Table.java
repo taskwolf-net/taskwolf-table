@@ -49,6 +49,15 @@ public final class Table extends DatabaseTable {
     return futureResponse;
   }
 
+  public void updateContent(UUID id, TableRow row) {
+    var cells = row.cells();
+    var values = new Object[row.cells().size()];
+    for (var i = 0; i < cells.size(); i++) {
+      values[i] = cells.get(i).value();
+    }
+    update(DatabaseCell.create(id), DatabaseRow.of(values));
+  }
+
   public CompletableFuture<Boolean> contentExists(UUID id) {
     return exists(DatabaseCell.create(id));
   }
