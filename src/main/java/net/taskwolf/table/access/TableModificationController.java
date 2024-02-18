@@ -156,36 +156,6 @@ public final class TableModificationController extends TaskwolfRestController {
     table.dropColumn(columnName);
   }
 
-  @RequestMapping(path = "/table/column/rename/", method = RequestMethod.POST)
-  public void renameTableColumn(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
-  ) {
-    var tableId = (String) input.get("table");
-    var oldColumnName = (String) input.get("oldColumnName");
-    var newColumnName = (String) input.get("newColumnName");
-    if (oldColumnName.equalsIgnoreCase("id") || newColumnName.equalsIgnoreCase("id")) {
-      return;
-    }
-    if (newColumnName.replace(" ", "").isEmpty()) {
-      return;
-    }
-    performTableOperation(findUserId(request), tableId, tableEntry ->
-      tableFactory.create(tableId).thenAccept(table ->
-        renameTableColumn(table, oldColumnName, newColumnName)));
-  }
-
-  private void renameTableColumn(
-    Table table, String oldColumnName, String newColumnName
-  ) {
-    if (table.columns().stream().noneMatch(column -> column.name().equals(oldColumnName))) {
-      return;
-    }
-    if (table.columns().stream().anyMatch(column -> column.name().equals(newColumnName))) {
-      return;
-    }
-    table.renameColumn(oldColumnName, newColumnName);
-  }
-
   @RequestMapping(path = "/table/rename/", method = RequestMethod.POST)
   public void renameTable(
     HttpServletRequest request, @RequestBody Map<String, Object> input
