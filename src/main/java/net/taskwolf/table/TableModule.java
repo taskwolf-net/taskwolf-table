@@ -12,7 +12,14 @@ import net.taskwolf.core.module.ModuleInformation;
 import net.taskwolf.core.module.ModuleLoadPriority;
 import net.taskwolf.core.trigger.TriggerFactory;
 import net.taskwolf.core.trigger.TriggerInformation;
+import net.taskwolf.core.workflow.component.input.InputComponentSelect;
 import net.taskwolf.table.action.TableActionFactory;
+import net.taskwolf.table.action.TableInsertEntryAction;
+import net.taskwolf.table.action.TableRemoveEntryAction;
+import net.taskwolf.table.structure.TableDatabaseTable;
+import net.taskwolf.table.structure.TableFactory;
+import net.taskwolf.table.trigger.TableInsertEntryTrigger;
+import net.taskwolf.table.trigger.TableRemoveEntryTrigger;
 import net.taskwolf.table.trigger.TableTriggerFactory;
 import org.springframework.boot.SpringApplication;
 
@@ -27,6 +34,7 @@ public final class TableModule extends Module {
   private TriggerFactory triggerFactory;
   private ActionFactory actionFactory;
   private AccountLink accountLink;
+  private InputComponentSelect tableComponentSelect;
 
   public TableModule(Injector injector) {
     super(injector.createChildInjector(TableInjectionModule.create()));
@@ -39,8 +47,11 @@ public final class TableModule extends Module {
     contextInitializer = injector().getInstance(TableContextInitializer.class);
     springApplication.addInitializers(contextInitializer);
     triggerFactory = TableTriggerFactory.create();
-    actionFactory = TableActionFactory.create();
+    var tableDatabaseTable = injector().getInstance(TableDatabaseTable.class);
+    var tableFactory = injector().getInstance(TableFactory.class);
+    actionFactory = TableActionFactory.create(tableDatabaseTable, tableFactory);
     accountLink = TableAccountLink.create();
+    tableComponentSelect = TableComponentSelect.create(tableDatabaseTable);
   }
 
   @Override
@@ -73,11 +84,13 @@ public final class TableModule extends Module {
 
   @Override
   public List<TriggerInformation> triggerInformation() {
-    return Lists.newArrayList();
+    return Lists.newArrayList(TableInsertEntryTrigger.information(tableComponentSelect),
+      TableRemoveEntryTrigger.information(tableComponentSelect));
   }
 
   @Override
   public List<ActionInformation> actionInformation() {
-    return Lists.newArrayList();
+    return Lists.newArrayList(TableInsertEntryAction.information(tableComponentSelect),
+      TableRemoveEntryAction.information(tableComponentSelect));
   }
 }
