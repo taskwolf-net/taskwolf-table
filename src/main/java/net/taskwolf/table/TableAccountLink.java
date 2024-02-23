@@ -32,6 +32,6 @@ public final class TableAccountLink implements AccountLink {
 
   @Override
   public String description() {
-    return "Great news! You don't need to link an account to use this module. Just click on \"skip\" to go to the next page.";
+    return "table.link.description";
   }
 }
