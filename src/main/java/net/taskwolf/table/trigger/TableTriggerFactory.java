@@ -10,10 +10,10 @@ public class TableTriggerFactory implements TriggerFactory {
   @Override
   public Trigger create(String type, String content) {
     var json = new JSONObject(content);
-    if (type.equals("table-entry-insert-trigger")) {
+    if (type.equals("database-entry-insert-trigger")) {
       return TableInsertEntryTrigger.of(json);
     }
-    if (type.equals("table-entry-remove-trigger")) {
+    if (type.equals("database-entry-remove-trigger")) {
       return TableRemoveEntryTrigger.of(json);
     }
     return null;

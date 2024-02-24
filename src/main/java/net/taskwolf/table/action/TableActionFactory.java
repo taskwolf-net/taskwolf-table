@@ -15,10 +15,10 @@ public final class TableActionFactory implements ActionFactory {
   @Override
   public Action create(String type, String content) {
     var json = new JSONObject(content);
-    if (type.equals("table-entry-insert-action")) {
+    if (type.equals("database-entry-insert-action")) {
       return TableInsertEntryAction.of(tableDatabaseTable, tableFactory, json);
     }
-    if (type.equals("table-entry-remove-action")) {
+    if (type.equals("database-entry-remove-action")) {
       return TableRemoveEntryAction.of(tableDatabaseTable, tableFactory, json);
     }
     return null;
