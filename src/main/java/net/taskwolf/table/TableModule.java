@@ -44,11 +44,12 @@ public final class TableModule extends Module {
   public void enable() throws Exception {
     log = injector().getInstance(Log.class).subLog("Table");
     springApplication = injector().getInstance(SpringApplication.class);
-    contextInitializer = injector().getInstance(TableContextInitializer.class);
-    springApplication.addInitializers(contextInitializer);
-    triggerFactory = TableTriggerFactory.create();
     var tableDatabaseTable = injector().getInstance(TableDatabaseTable.class);
     var tableFactory = injector().getInstance(TableFactory.class);
+    triggerFactory = TableTriggerFactory.create();
+    contextInitializer = TableContextInitializer.create(tableDatabaseTable,
+      tableFactory, triggerFactory);
+    springApplication.addInitializers(contextInitializer);
     actionFactory = TableActionFactory.create(tableDatabaseTable, tableFactory);
     accountLink = TableAccountLink.create();
     tableComponentSelect = TableComponentSelect.create(tableDatabaseTable);
