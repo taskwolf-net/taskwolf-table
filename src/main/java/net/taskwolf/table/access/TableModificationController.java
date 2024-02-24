@@ -1,14 +1,21 @@
 package net.taskwolf.table.access;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.database.DatabaseColumn;
 import net.taskwolf.core.database.DatabaseDataType;
 import net.taskwolf.core.database.DatabaseTable;
+import net.taskwolf.core.trigger.TriggerEntry;
+import net.taskwolf.core.trigger.TriggerFactory;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.table.structure.*;
+import net.taskwolf.table.trigger.TableInsertEntryTrigger;
+import net.taskwolf.table.trigger.TableRemoveEntryTrigger;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -24,16 +31,21 @@ public final class TableModificationController extends TaskwolfRestController {
   private final TableDatabaseTable tableDatabaseTable;
   private final TableFactory tableFactory;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
+  private final CoreModule coreModule;
+  private final TriggerFactory tableTriggerFactory;
 
   private TableModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     TableDatabaseTable tableDatabaseTable, TableFactory tableFactory,
-    UserTargetDatabaseTable userTargetDatabaseTable
+    UserTargetDatabaseTable userTargetDatabaseTable, CoreModule coreModule,
+    @Qualifier("tableTriggerFactory") TriggerFactory tableTriggerFactory
   ) {
     super(secretKey, userDatabaseTable);
     this.tableDatabaseTable = tableDatabaseTable;
     this.tableFactory = tableFactory;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
+    this.coreModule = coreModule;
+    this.tableTriggerFactory = tableTriggerFactory;
   }
 
   @RequestMapping(path = "/table/create/", method = RequestMethod.POST)
@@ -78,6 +90,24 @@ public final class TableModificationController extends TaskwolfRestController {
       cells.add(TableCell.create(entry.getKey(), entry.getValue()));
     }
     table.insertContent(TableRow.create(cells));
+    coreModule.triggerWorkflows("database", "database-entry-insert-trigger",
+      trigger -> isTableInsertTriggerSuitable(trigger, table),
+      tableInsertInformation(table, contentId));
+  }
+
+  private boolean isTableInsertTriggerSuitable(
+    TriggerEntry trigger, Table table
+  ) {
+    var tableInsertTrigger = (TableInsertEntryTrigger)
+      tableTriggerFactory.create(trigger.type(), trigger.content());
+    return tableInsertTrigger.tableIdentifier().equals(table.name());
+  }
+
+  private Map<String, Object> tableInsertInformation(Table table, UUID entryId) {
+    var information = Maps.<String, Object>newHashMap();
+    information.put("tableName", table.name());
+    information.put("entryId", entryId);
+    return information;
   }
 
   @RequestMapping(path = "/table/entry/update/", method = RequestMethod.POST)
@@ -111,7 +141,29 @@ public final class TableModificationController extends TaskwolfRestController {
     var rowId =  UUID.fromString((String) input.get("row"));
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableId).thenAccept(table ->
-        table.removeContent(rowId)));
+        removeTableEntry(table, rowId)));
+  }
+
+  private void removeTableEntry(Table table, UUID rowId) {
+    table.removeContent(rowId);
+    coreModule.triggerWorkflows("database", "database-entry-remove-trigger",
+      trigger -> isTableRemoveTriggerSuitable(trigger, table),
+      tableRemoveInformation(table, rowId));
+  }
+
+  private boolean isTableRemoveTriggerSuitable(
+    TriggerEntry trigger, Table table
+  ) {
+    var tableInsertTrigger = (TableRemoveEntryTrigger)
+      tableTriggerFactory.create(trigger.type(), trigger.content());
+    return tableInsertTrigger.tableIdentifier().equals(table.name());
+  }
+
+  private Map<String, Object> tableRemoveInformation(Table table, UUID entryId) {
+    var information = Maps.<String, Object>newHashMap();
+    information.put("tableName", table.name());
+    information.put("entryId", entryId);
+    return information;
   }
 
   @RequestMapping(path = "/table/column/add/", method = RequestMethod.POST)
