@@ -20,11 +20,11 @@ public final class TableInsertEntryTrigger implements Trigger {
     return TriggerInformation.builder()
       .withName("table.trigger.entry.insert.name")
       .withDescription("table.trigger.entry.insert.description")
-      .withIdentifier("table-entry-insert-trigger")
+      .withIdentifier("database-entry-insert-trigger")
       .withInputVariable(InputComponentVariable.createSelect("table.trigger.entry.insert.input.table.name",
         "tableIdentifier", "table.trigger.entry.insert.input.table.description", tableComponentSelect))
       .withOutputVariable(OutputComponentVariable.create("table.trigger.entry.insert.output.table", "tableName"))
-      .withOutputVariable(OutputComponentVariable.create("table.trigger.entry.insert.output.entry", "entry"))
+      .withOutputVariable(OutputComponentVariable.create("table.trigger.entry.insert.output.entry.id", "entryId"))
       .build();
   }
 

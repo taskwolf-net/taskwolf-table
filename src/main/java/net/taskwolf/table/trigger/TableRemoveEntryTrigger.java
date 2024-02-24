@@ -20,11 +20,11 @@ public final class TableRemoveEntryTrigger implements Trigger {
     return TriggerInformation.builder()
       .withName("table.trigger.entry.remove.name")
       .withDescription("table.trigger.entry.remove.description")
-      .withIdentifier("table-entry-remove-trigger")
+      .withIdentifier("database-entry-remove-trigger")
       .withInputVariable(InputComponentVariable.createSelect("table.trigger.entry.remove.input.table.name",
         "tableIdentifier", "table.trigger.entry.remove.input.table.description", tableComponentSelect))
       .withOutputVariable(OutputComponentVariable.create("table.trigger.entry.remove.output.table", "tableName"))
-      .withOutputVariable(OutputComponentVariable.create("table.trigger.entry.remove.output.entry", "entry"))
+      .withOutputVariable(OutputComponentVariable.create("table.trigger.entry.remove.output.entry.id", "entryId"))
       .build();
   }
 
