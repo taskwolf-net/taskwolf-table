@@ -16,6 +16,7 @@ import net.taskwolf.table.structure.TableFactory;
 import org.json.JSONObject;
 
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @AllArgsConstructor(staticName = "create")
@@ -26,12 +27,12 @@ public final class TableRemoveEntryAction implements Action {
     return ActionInformation.builder()
       .withName("table.action.entry.remove.name")
       .withDescription("table.action.entry.remove.description")
-      .withIdentifier("table-entry-remove-action")
+      .withIdentifier("database-entry-remove-action")
       .withInputVariable(InputComponentVariable.createSelect("table.action.entry.remove.input.table.name",
         "tableIdentifier", "table.action.entry.remove.input.table.description", tableComponentSelect))
       .withInputVariable(InputComponentVariable.createRequired("table.action.entry.remove.input.entry.name",
         "entryIdentifier", "table.action.entry.remove.input.entry.description", InputComponentDataType.TEXT))
-      .withOutputVariable(OutputComponentVariable.create("table.action.entry.insert.output.table", "tableName"))
+      .withOutputVariable(OutputComponentVariable.create("table.action.entry.remove.output.table", "tableName"))
       .build();
   }
 
@@ -60,15 +61,29 @@ public final class TableRemoveEntryAction implements Action {
     if (!tableExists) {
       return ActionResult.futureFailure("table.action.entry.remove.failure.table.not.found");
     }
-    return tableFactory.create(tableIdentifier).thenApply(table ->
+    return tableFactory.create(tableIdentifier).thenCompose(table ->
       execute(information, table));
   }
 
-  private ActionResult execute(
+  private CompletableFuture<ActionResult> execute(
     Map<String, Object> information, Table table
   ) {
     var placeholderDissolve = PlaceholderDissolve.create(information);
     entryIdentifier = placeholderDissolve.dissolve(entryIdentifier);
+    try {
+      var entryId = UUID.fromString(entryIdentifier);
+      return table.contentExists(entryId).thenApply(exists ->
+        execute(table, entryId, exists));
+    } catch (Exception exception) {
+      return ActionResult.futureFailure("table.action.entry.remove.failure.entry.wrong.format");
+    }
+  }
+
+  private ActionResult execute(Table table, UUID entryId, boolean entryExists) {
+    if (!entryExists) {
+      return ActionResult.failure("table.action.entry.remove.failure.entry.not.found");
+    }
+    table.removeContent(entryId);
     return ActionResult.success(buildInformation(table));
   }
 
