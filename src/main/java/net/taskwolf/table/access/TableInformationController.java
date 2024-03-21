@@ -3,6 +3,8 @@ package net.taskwolf.table.access;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.database.DatabaseColumn;
 import net.taskwolf.core.iterator.AsyncIterator;
@@ -60,14 +62,16 @@ public final class TableInformationController extends TaskwolfRestController {
 
   @RequestMapping(path = "/table/find/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findTable(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var tableId = (String) input.get("table");
-    var page = (int) input.get("page");
+    var tableId = body.getString("table");
     var userId = findUserId(request);
-    tableDatabaseTable.tableExists(tableId).thenAccept(exists ->
-      findTable(userId, tableId, page, exists).thenAccept(futureResponse::complete));
+    tableDatabaseTable.tableExists(tableId)
+      .thenAccept(exists -> findTable(userId, tableId, body.getInt("page"), exists)
+        .thenAccept(futureResponse::complete));
     return futureResponse;
   }
 

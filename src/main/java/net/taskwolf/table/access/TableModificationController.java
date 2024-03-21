@@ -3,8 +3,10 @@ package net.taskwolf.table.access;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.database.DatabaseColumn;
 import net.taskwolf.core.database.DatabaseDataType;
 import net.taskwolf.core.database.DatabaseTable;
@@ -50,13 +52,14 @@ public final class TableModificationController extends TaskwolfRestController {
 
   @RequestMapping(path = "/table/create/", method = RequestMethod.POST)
   public void createTable(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var tableName = (String) input.get("name");
+    var body = TaskwolfRequestBody.of(payload, response);
     var userId = findUserId(request);
     userTargetDatabaseTable.findTarget(userId).thenAccept(target ->
       tableDatabaseTable.generateAvailableTableId().thenAccept(tableId ->
-        createTable(tableId, target, userId, tableName)));
+        createTable(tableId, target, userId, body.getString("name"))));
   }
 
   private void createTable(String tableId, UUID owner, UUID creator, String name) {
@@ -71,14 +74,15 @@ public final class TableModificationController extends TaskwolfRestController {
 
   @RequestMapping(path = "/table/entry/insert/", method = RequestMethod.POST)
   public void insertTableEntry(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var tableId = (String) input.get("table");
-    var rowContent = (Map<String, Object>) input.get("row");
+    var body = TaskwolfRequestBody.of(payload, response);
+    var tableId = body.getString("table");
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableId).thenAccept(table ->
         table.generateAvailableContentId().thenAccept(contentId ->
-          insertTableEntry(table, contentId, rowContent))));
+          insertTableEntry(table, contentId, body.getObject("row").raw().toMap()))));
   }
 
   private void insertTableEntry(
@@ -112,14 +116,15 @@ public final class TableModificationController extends TaskwolfRestController {
 
   @RequestMapping(path = "/table/entry/update/", method = RequestMethod.POST)
   public void updateTableEntry(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var tableId = (String) input.get("table");
-    var rowId =  UUID.fromString((String) input.get("row"));
-    var rowContent = (Map<String, Object>) input.get("content");
+    var body = TaskwolfRequestBody.of(payload, response);
+    var tableId = body.getString("table");
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableId).thenAccept(table ->
-          insertTableEntry(table, rowId, rowContent)));
+        insertTableEntry(table, body.getUUID("row"),
+          body.getObject("content").raw().toMap())));
   }
 
   private void updateTableEntry(
@@ -135,13 +140,14 @@ public final class TableModificationController extends TaskwolfRestController {
 
   @RequestMapping(path = "/table/entry/remove/", method = RequestMethod.POST)
   public void removeTableEntry(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var tableId = (String) input.get("table");
-    var rowId =  UUID.fromString((String) input.get("row"));
+    var body = TaskwolfRequestBody.of(payload, response);
+    var tableId = body.getString("table");
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableId).thenAccept(table ->
-        removeTableEntry(table, rowId)));
+        removeTableEntry(table, body.getUUID("row"))));
   }
 
   private void removeTableEntry(Table table, UUID rowId) {
@@ -168,10 +174,12 @@ public final class TableModificationController extends TaskwolfRestController {
 
   @RequestMapping(path = "/table/column/add/", method = RequestMethod.POST)
   public void addTableColumn(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var tableId = (String) input.get("table");
-    var columnName = (String) input.get("columnName");
+    var body = TaskwolfRequestBody.of(payload, response);
+    var tableId = body.getString("table");
+    var columnName = body.getString("columnName");
     if (columnName.equalsIgnoreCase("id")) {
       return;
     }
@@ -189,10 +197,12 @@ public final class TableModificationController extends TaskwolfRestController {
 
   @RequestMapping(path = "/table/column/remove/", method = RequestMethod.POST)
   public void removeTableColumn(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var tableId = (String) input.get("table");
-    var columnName = (String) input.get("columnName");
+    var body = TaskwolfRequestBody.of(payload, response);
+    var tableId = body.getString("table");
+    var columnName = body.getString("columnName");
     if (columnName.equalsIgnoreCase("id")) {
       return;
     }
@@ -210,10 +220,12 @@ public final class TableModificationController extends TaskwolfRestController {
 
   @RequestMapping(path = "/table/rename/", method = RequestMethod.POST)
   public void renameTable(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var tableId = (String) input.get("table");
-    var tableName = (String) input.get("name");
+    var body = TaskwolfRequestBody.of(payload, response);
+    var tableId = body.getString("table");
+    var tableName = body.getString("name");
     if (tableName.replace(" ", "").isEmpty()) {
       return;
     }
@@ -223,9 +235,11 @@ public final class TableModificationController extends TaskwolfRestController {
 
   @RequestMapping(path = "/table/delete/", method = RequestMethod.POST)
   public void deleteTable(
-    HttpServletRequest request, @RequestBody Map<String, Object> input
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    var tableId = (String) input.get("table");
+    var body = TaskwolfRequestBody.of(payload, response);
+    var tableId = body.getString("table");
     performTableOperation(findUserId(request), tableId, this::deleteTable);
   }
 
