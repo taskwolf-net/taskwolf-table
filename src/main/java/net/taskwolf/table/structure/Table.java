@@ -32,12 +32,7 @@ public final class Table extends DatabaseTable {
   }
 
   public void insertContent(TableRow row) {
-    var cells = row.cells();
-    var values = new Object[row.cells().size()];
-    for (var i = 0; i < cells.size(); i++) {
-      values[i] = cells.get(i).value();
-    }
-    insert(DatabaseRow.of(values));
+    insert(DatabaseRow.of(createRowValues(row)));
   }
 
   public CompletableFuture<UUID> generateAvailableContentId() {
@@ -50,12 +45,27 @@ public final class Table extends DatabaseTable {
   }
 
   public void updateContent(UUID id, TableRow row) {
+    update(DatabaseCell.create(id), DatabaseRow.of(createRowValues(row)));
+  }
+
+  private Object[] createRowValues(TableRow row) {
     var cells = row.cells();
-    var values = new Object[row.cells().size()];
-    for (var i = 0; i < cells.size(); i++) {
-      values[i] = cells.get(i).value();
+    var columns = columns();
+    var values = new Object[columns.size()];
+    for (var i = 0; i < columns.size(); i++) {
+      var column = columns.get(i);
+      values[i] = findRowValueForColumn(column, cells);
     }
-    update(DatabaseCell.create(id), DatabaseRow.of(values));
+    return values;
+  }
+
+  private Object findRowValueForColumn(DatabaseColumn column, List<TableCell> cells) {
+    for (var cell : cells) {
+      if (column.name().equalsIgnoreCase(cell.column())) {
+        return cell.value();
+      }
+    }
+    return "";
   }
 
   public CompletableFuture<Boolean> contentExists(UUID id) {
