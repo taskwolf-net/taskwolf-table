@@ -243,7 +243,7 @@ public final class TableModificationController extends TaskwolfRestController {
     performTableOperation(findUserId(request), tableId, this::deleteTable);
   }
 
-  private void deleteTable(TableEntry tableEntry) {
+  public void deleteTable(TableEntry tableEntry) {
     var tableId = tableEntry.id();
     tableDatabaseTable.deleteTable(tableId);
     tableFactory.create(tableId).thenAccept(DatabaseTable::dropIfExists);
