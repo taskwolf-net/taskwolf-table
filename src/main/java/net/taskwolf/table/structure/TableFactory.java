@@ -8,7 +8,6 @@ import net.taskwolf.core.database.DatabaseConnection;
 import net.taskwolf.core.database.DatabaseKeyspace;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @Singleton
