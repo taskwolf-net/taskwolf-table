@@ -5,6 +5,7 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.google.inject.name.Named;
 import lombok.RequiredArgsConstructor;
+import net.taskwolf.core.database.DatabaseConfiguration;
 import net.taskwolf.core.database.DatabaseConnection;
 import net.taskwolf.core.database.DatabaseKeyspace;
 import net.taskwolf.table.structure.TableDatabaseTable;
@@ -19,8 +20,8 @@ public class TableInjectionModule extends AbstractModule {
   @Provides
   @Singleton
   @Named("tableConnection")
-  DatabaseConnection provideTableConnection() {
-    var tableConnection = DatabaseConnection.create();
+  DatabaseConnection provideTableConnection(DatabaseConfiguration configuration) {
+    var tableConnection = DatabaseConnection.create(configuration);
     tableConnection.connect();
     return tableConnection;
   }
