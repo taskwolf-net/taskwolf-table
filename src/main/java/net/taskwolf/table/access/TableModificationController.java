@@ -57,9 +57,13 @@ public final class TableModificationController extends TaskwolfRestController {
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var userId = findUserId(request);
+    var name = body.getString("name");
+    if (name.isEmpty()) {
+      return;
+    }
     userTargetDatabaseTable.findTarget(userId).thenAccept(target ->
       tableDatabaseTable.generateAvailableTableId().thenAccept(tableId ->
-        createTable(tableId, target, userId, body.getString("name"))));
+        createTable(tableId, target, userId, name)));
   }
 
   private void createTable(String tableId, UUID owner, UUID creator, String name) {
