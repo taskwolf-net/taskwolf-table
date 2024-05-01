@@ -4,6 +4,6 @@ This module implements the table / database function of Taskwolf. Users can stor
 
 ## Status
 
-|             | Build Status                                                                                                        |
-|-------------|---------------------------------------------------------------------------------------------------------------------|
-| Master      | ![Java CI with Gradle](https://github.com/TaskwolfNET/taskwolf-table/workflows/Java%20CI%20with%20Gradle/badge.svg) |
+|             | Build Status                                                                                    |
+|-------------|-------------------------------------------------------------------------------------------------|
+| Master      | ![Java CI with Gradle](https://git.taskwolf.net/root/taskwolf-table/badges/master/pipeline.svg) |
