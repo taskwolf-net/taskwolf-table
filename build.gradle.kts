@@ -59,7 +59,7 @@ dependencies {
   testCompileOnly("org.projectlombok:lombok:1.18.32")
   testAnnotationProcessor("org.projectlombok:lombok:1.18.32")
 
-  implementation("com.datastax.oss:java-driver-core:4.17.0")
+  compileOnly("com.datastax.oss:java-driver-core:4.17.0")
 
   compileOnly("org.json:json:20240303")
   compileOnly("commons-io:commons-io:2.16.1")
