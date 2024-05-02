@@ -11,12 +11,11 @@ import net.taskwolf.core.database.DatabaseColumn;
 import net.taskwolf.core.database.DatabaseDataType;
 import net.taskwolf.core.database.DatabaseTable;
 import net.taskwolf.core.trigger.TriggerEntry;
-import net.taskwolf.core.trigger.TriggerFactory;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.table.structure.*;
-import net.taskwolf.table.trigger.TableInsertEntryTrigger;
-import net.taskwolf.table.trigger.TableRemoveEntryTrigger;
+import net.taskwolf.table.trigger.insert.TableInsertEntryTrigger;
+import net.taskwolf.table.trigger.remove.TableRemoveEntryTrigger;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,20 +33,17 @@ public final class TableModificationController extends TaskwolfRestController {
   private final TableFactory tableFactory;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final CoreModule coreModule;
-  private final TriggerFactory tableTriggerFactory;
 
   private TableModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     TableDatabaseTable tableDatabaseTable, TableFactory tableFactory,
-    UserTargetDatabaseTable userTargetDatabaseTable, CoreModule coreModule,
-    @Qualifier("tableTriggerFactory") TriggerFactory tableTriggerFactory
+    UserTargetDatabaseTable userTargetDatabaseTable, CoreModule coreModule
   ) {
     super(secretKey, userDatabaseTable);
     this.tableDatabaseTable = tableDatabaseTable;
     this.tableFactory = tableFactory;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.coreModule = coreModule;
-    this.tableTriggerFactory = tableTriggerFactory;
   }
 
   @RequestMapping(path = "/table/create/", method = RequestMethod.POST)
@@ -86,11 +82,13 @@ public final class TableModificationController extends TaskwolfRestController {
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableId).thenAccept(table ->
         table.generateAvailableContentId().thenAccept(contentId ->
-          insertTableEntry(table, contentId, body.getObject("row").raw().toMap()))));
+          insertTableEntry(tableEntry, table, contentId,
+            body.getObject("row").raw().toMap()))));
   }
 
   private void insertTableEntry(
-    Table table, UUID contentId, Map<String, Object> rowContent
+    TableEntry tableEntry, Table table, UUID contentId,
+    Map<String, Object> rowContent
   ) {
     var cells = Lists.<TableCell>newArrayList();
     cells.add(TableCell.create("id", contentId));
@@ -99,16 +97,7 @@ public final class TableModificationController extends TaskwolfRestController {
     }
     table.insertContent(TableRow.create(cells));
     coreModule.triggerWorkflows("database", "database-entry-insert-trigger",
-      trigger -> isTableInsertTriggerSuitable(trigger, table),
-      tableInsertInformation(table, contentId));
-  }
-
-  private boolean isTableInsertTriggerSuitable(
-    TriggerEntry trigger, Table table
-  ) {
-    var tableInsertTrigger = (TableInsertEntryTrigger)
-      tableTriggerFactory.create(trigger.type(), trigger.content());
-    return tableInsertTrigger.tableIdentifier().equals(table.name());
+      "table='" + tableEntry.id() + "'", tableInsertInformation(table, contentId));
   }
 
   private Map<String, Object> tableInsertInformation(Table table, UUID entryId) {
@@ -127,7 +116,7 @@ public final class TableModificationController extends TaskwolfRestController {
     var tableId = body.getString("table");
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableId).thenAccept(table ->
-        insertTableEntry(table, body.getUUID("row"),
+        insertTableEntry(tableEntry, table, body.getUUID("row"),
           body.getObject("content").raw().toMap())));
   }
 
@@ -151,22 +140,13 @@ public final class TableModificationController extends TaskwolfRestController {
     var tableId = body.getString("table");
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableId).thenAccept(table ->
-        removeTableEntry(table, body.getUUID("row"))));
+        removeTableEntry(tableEntry, table, body.getUUID("row"))));
   }
 
-  private void removeTableEntry(Table table, UUID rowId) {
+  private void removeTableEntry(TableEntry tableEntry, Table table, UUID rowId) {
     table.removeContent(rowId);
     coreModule.triggerWorkflows("database", "database-entry-remove-trigger",
-      trigger -> isTableRemoveTriggerSuitable(trigger, table),
-      tableRemoveInformation(table, rowId));
-  }
-
-  private boolean isTableRemoveTriggerSuitable(
-    TriggerEntry trigger, Table table
-  ) {
-    var tableInsertTrigger = (TableRemoveEntryTrigger)
-      tableTriggerFactory.create(trigger.type(), trigger.content());
-    return tableInsertTrigger.tableIdentifier().equals(table.name());
+      "table='" + tableEntry.id() + "'", tableRemoveInformation(table, rowId));
   }
 
   private Map<String, Object> tableRemoveInformation(Table table, UUID entryId) {

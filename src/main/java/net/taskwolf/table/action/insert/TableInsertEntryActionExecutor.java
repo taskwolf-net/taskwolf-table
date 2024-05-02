@@ -1,19 +1,13 @@
-package net.taskwolf.table.action;
+package net.taskwolf.table.action.insert;
 
 import com.datastax.oss.driver.shaded.guava.common.collect.Maps;
 import com.google.common.collect.Lists;
 import lombok.AllArgsConstructor;
-import net.taskwolf.core.action.Action;
-import net.taskwolf.core.action.ActionInformation;
+import net.taskwolf.core.action.ActionExecutor;
 import net.taskwolf.core.action.ActionResult;
 import net.taskwolf.core.database.DatabaseColumn;
-import net.taskwolf.core.workflow.component.input.InputComponentDataType;
-import net.taskwolf.core.workflow.component.input.InputComponentSelect;
-import net.taskwolf.core.workflow.component.input.InputComponentVariable;
-import net.taskwolf.core.workflow.component.output.OutputComponentVariable;
 import net.taskwolf.core.workflow.placeholder.PlaceholderDissolve;
 import net.taskwolf.table.structure.*;
-import org.json.JSONObject;
 
 import java.util.List;
 import java.util.Map;
@@ -21,32 +15,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @AllArgsConstructor(staticName = "create")
-public final class TableInsertEntryAction implements Action {
-  public static ActionInformation information(
-    InputComponentSelect tableComponentSelect
-  ) {
-    return ActionInformation.builder()
-      .withName("table.action.entry.insert.name")
-      .withDescription("table.action.entry.insert.description")
-      .withIdentifier("database-entry-insert-action")
-      .withInputVariable(InputComponentVariable.createSelect("table.action.entry.insert.input.table.name",
-        "tableIdentifier", "table.action.entry.insert.input.table.description", tableComponentSelect))
-      .withInputVariable(InputComponentVariable.createRequired("table.action.entry.insert.input.content.name",
-        "entryContent", "table.action.entry.insert.input.content.description", InputComponentDataType.TEXT))
-      .withOutputVariable(OutputComponentVariable.create("table.action.entry.insert.output.table", "tableName"))
-      .withOutputVariable(OutputComponentVariable.create("table.action.entry.insert.output.entry.content", "entryContent"))
-      .withOutputVariable(OutputComponentVariable.create("table.action.entry.insert.output.entry.id", "entryId"))
-      .build();
-  }
-
-  public static TableInsertEntryAction of(
-    TableDatabaseTable tableDatabaseTable, TableFactory tableFactory,
-    JSONObject content
-  ) {
-    return create(tableDatabaseTable, tableFactory,
-      content.getString("tableIdentifier"), content.getString("entryContent"));
-  }
-
+public final class TableInsertEntryActionExecutor implements ActionExecutor {
   private final TableDatabaseTable tableDatabaseTable;
   private final TableFactory tableFactory;
   private final String tableIdentifier;

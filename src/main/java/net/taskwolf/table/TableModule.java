@@ -3,27 +3,23 @@ package net.taskwolf.table;
 import com.google.common.collect.Lists;
 import com.google.inject.Injector;
 import net.taskwolf.core.account.AccountLink;
-import net.taskwolf.core.action.ActionFactory;
-import net.taskwolf.core.action.ActionInformation;
+import net.taskwolf.core.action.ActionRepository;
+import net.taskwolf.core.database.DatabaseConnection;
+import net.taskwolf.core.database.DatabaseKeyspace;
 import net.taskwolf.core.log.Log;
 import net.taskwolf.core.module.Module;
 import net.taskwolf.core.module.ModuleDescription;
 import net.taskwolf.core.module.ModuleInformation;
 import net.taskwolf.core.module.ModuleLoadPriority;
-import net.taskwolf.core.trigger.TriggerFactory;
-import net.taskwolf.core.trigger.TriggerInformation;
+import net.taskwolf.core.trigger.TriggerRepository;
 import net.taskwolf.core.workflow.component.input.InputComponentSelect;
-import net.taskwolf.table.action.TableActionFactory;
-import net.taskwolf.table.action.TableInsertEntryAction;
-import net.taskwolf.table.action.TableRemoveEntryAction;
+import net.taskwolf.table.action.insert.TableInsertEntryAction;
+import net.taskwolf.table.action.remove.TableRemoveEntryAction;
 import net.taskwolf.table.structure.TableDatabaseTable;
 import net.taskwolf.table.structure.TableFactory;
-import net.taskwolf.table.trigger.TableInsertEntryTrigger;
-import net.taskwolf.table.trigger.TableRemoveEntryTrigger;
-import net.taskwolf.table.trigger.TableTriggerFactory;
+import net.taskwolf.table.trigger.insert.TableInsertEntryTrigger;
+import net.taskwolf.table.trigger.remove.TableRemoveEntryTrigger;
 import org.springframework.boot.SpringApplication;
-
-import java.util.List;
 
 @ModuleDescription(name = "table", version = "1.0.0-SNAPSHOT",
   priority = ModuleLoadPriority.NEUTRAL)
@@ -31,8 +27,6 @@ public final class TableModule extends Module {
   private Log log;
   private SpringApplication springApplication;
   private TableContextInitializer contextInitializer;
-  private TriggerFactory triggerFactory;
-  private ActionFactory actionFactory;
   private AccountLink accountLink;
   private InputComponentSelect tableComponentSelect;
 
@@ -46,11 +40,9 @@ public final class TableModule extends Module {
     springApplication = injector().getInstance(SpringApplication.class);
     var tableDatabaseTable = injector().getInstance(TableDatabaseTable.class);
     var tableFactory = injector().getInstance(TableFactory.class);
-    triggerFactory = TableTriggerFactory.create();
     contextInitializer = TableContextInitializer.create(tableDatabaseTable,
-      tableFactory, triggerFactory);
+      tableFactory);
     springApplication.addInitializers(contextInitializer);
-    actionFactory = TableActionFactory.create(tableDatabaseTable, tableFactory);
     accountLink = TableAccountLink.create();
     tableComponentSelect = TableComponentSelect.create(tableDatabaseTable);
   }
@@ -60,16 +52,6 @@ public final class TableModule extends Module {
     var initializers = Lists.newArrayList(springApplication.getInitializers());
     initializers.remove(contextInitializer);
     springApplication.setInitializers(initializers);
-  }
-
-  @Override
-  public TriggerFactory triggerFactory() {
-    return triggerFactory;
-  }
-
-  @Override
-  public ActionFactory actionFactory() {
-    return actionFactory;
   }
 
   @Override
@@ -84,14 +66,29 @@ public final class TableModule extends Module {
   }
 
   @Override
-  public List<TriggerInformation> triggerInformation() {
-    return Lists.newArrayList(TableInsertEntryTrigger.information(tableComponentSelect),
-      TableRemoveEntryTrigger.information(tableComponentSelect));
+  public TriggerRepository triggerRepository() {
+    var databaseConnection = injector().getInstance(DatabaseConnection.class);
+    var databaseKeyspace = injector().getInstance(DatabaseKeyspace.class);
+    var repository = TriggerRepository.create();
+    repository.registerTrigger(TableInsertEntryTrigger.create(tableComponentSelect,
+      databaseConnection, databaseKeyspace));
+    repository.registerTrigger(TableRemoveEntryTrigger.create(tableComponentSelect,
+      databaseConnection, databaseKeyspace));
+    return repository;
   }
 
+
   @Override
-  public List<ActionInformation> actionInformation() {
-    return Lists.newArrayList(TableInsertEntryAction.information(tableComponentSelect),
-      TableRemoveEntryAction.information(tableComponentSelect));
+  public ActionRepository actionRepository() {
+    var databaseConnection = injector().getInstance(DatabaseConnection.class);
+    var databaseKeyspace = injector().getInstance(DatabaseKeyspace.class);
+    var tableDatabaseTable = injector().getInstance(TableDatabaseTable.class);
+    var tableFactory = injector().getInstance(TableFactory.class);
+    var repository = ActionRepository.create();
+    repository.registerAction(TableInsertEntryAction.create(tableComponentSelect,
+      tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
+    repository.registerAction(TableRemoveEntryAction.create(tableComponentSelect,
+      tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
+    return repository;
   }
 }
