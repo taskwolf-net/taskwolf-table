@@ -25,7 +25,7 @@ public final class TableInsertEntryAction implements Action<TableInsertEntryActi
     DatabaseConnection databaseConnection, DatabaseKeyspace databaseKeyspace
   ) {
     var contentColumns = Lists.<DatabaseColumn>newArrayList();
-    contentColumns.add(DatabaseColumn.create("table", DatabaseDataType.TEXT));
+    contentColumns.add(DatabaseColumn.create("tableId", DatabaseDataType.TEXT));
     contentColumns.add(DatabaseColumn.create("content", DatabaseDataType.TEXT));
     return new TableInsertEntryAction(tableComponentSelect, tableDatabaseTable,
       tableFactory, ActionContentDatabaseTable.create(databaseConnection,

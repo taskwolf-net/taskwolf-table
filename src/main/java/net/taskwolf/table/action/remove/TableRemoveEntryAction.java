@@ -25,7 +25,7 @@ public final class TableRemoveEntryAction implements Action<TableRemoveEntryActi
     DatabaseConnection databaseConnection, DatabaseKeyspace databaseKeyspace
   ) {
     var contentColumns = Lists.<DatabaseColumn>newArrayList();
-    contentColumns.add(DatabaseColumn.create("table", DatabaseDataType.TEXT));
+    contentColumns.add(DatabaseColumn.create("tableId", DatabaseDataType.TEXT));
     contentColumns.add(DatabaseColumn.create("entry", DatabaseDataType.TEXT));
     return new TableRemoveEntryAction(tableComponentSelect, tableDatabaseTable,
       tableFactory, ActionContentDatabaseTable.create(databaseConnection,

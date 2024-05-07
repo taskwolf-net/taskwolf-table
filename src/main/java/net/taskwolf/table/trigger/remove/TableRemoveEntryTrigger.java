@@ -22,7 +22,7 @@ public final class TableRemoveEntryTrigger implements Trigger {
     DatabaseConnection databaseConnection, DatabaseKeyspace databaseKeyspace
   ) {
     var contentColumns = Lists.<DatabaseColumn>newArrayList();
-    contentColumns.add(DatabaseColumn.create("table", DatabaseDataType.TEXT));
+    contentColumns.add(DatabaseColumn.create("tableId", DatabaseDataType.TEXT));
     return new TableRemoveEntryTrigger(tableComponentSelect,
       TriggerContentDatabaseTable.create(databaseConnection, databaseKeyspace,
         "trigger_database_entry_remove", contentColumns));
