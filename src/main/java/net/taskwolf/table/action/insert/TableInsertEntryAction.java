@@ -50,7 +50,8 @@ public final class TableInsertEntryAction implements Action<TableInsertEntryActi
       .withInputVariable(InputComponentVariable.createSelect("table.action.entry.insert.input.table.name",
         "tableIdentifier", "table.action.entry.insert.input.table.description", tableComponentSelect))
       .withInputVariable(InputComponentVariable.createRequired("table.action.entry.insert.input.content.name",
-        "entryContent", "table.action.entry.insert.input.content.description", InputComponentDataType.TEXT))
+        "entryContent", "table.action.entry.insert.input.content.description",
+        "table.action.entry.insert.input.content.placeholder", InputComponentDataType.TEXT))
       .withOutputVariable(OutputComponentVariable.create("table.action.entry.insert.output.table", "tableName"))
       .withOutputVariable(OutputComponentVariable.create("table.action.entry.insert.output.entry.content", "entryContent"))
       .withOutputVariable(OutputComponentVariable.create("table.action.entry.insert.output.entry.id", "entryId"))
