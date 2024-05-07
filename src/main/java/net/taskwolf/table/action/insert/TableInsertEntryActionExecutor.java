@@ -54,7 +54,6 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
 
   private List<TableCell> createCells(Table table, UUID contentId) throws Exception {
     var tableColumns = table.columns().stream().map(DatabaseColumn::name).toList();
-    entryContent = entryContent.replace(" ", "");
     var entries = entryContent.split(",");
     var cells = Lists.newArrayList(TableCell.create("id", contentId));
     for (var entry : entries) {
@@ -74,7 +73,7 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
     if (split.length != 2) {
       throw new Exception("table.action.entry.insert.failure.wrong.schema");
     }
-    var column = split[0];
+    var column = split[0].replace(" ", "");
     var columnExists = columns.stream().anyMatch(tableColumn ->
       tableColumn.equalsIgnoreCase(column));
     if (!columnExists) {
