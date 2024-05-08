@@ -57,8 +57,8 @@ public final class TableInformationController extends TaskwolfRestController {
     AsyncIterator.execute(entries, entry -> tableFactory.create(entry.id())
         .thenCompose(table -> table.count().thenCompose(rows ->
           table.averageRowSize().thenApply(averageRowSize ->
-            superficialTableInformation(entry, rows, averageRowSize)))),
-      entries.size(), tables -> futureResponse.complete(Map.of("tables", tables)));
+            superficialTableInformation(entry, rows, averageRowSize)))))
+      .thenAccept(tables -> futureResponse.complete(Map.of("tables", tables)));
     return futureResponse;
   }
 
