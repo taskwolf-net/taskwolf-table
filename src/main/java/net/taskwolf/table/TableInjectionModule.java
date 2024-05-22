@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import net.taskwolf.core.database.DatabaseConfiguration;
 import net.taskwolf.core.database.DatabaseConnection;
 import net.taskwolf.core.database.DatabaseKeyspace;
+import net.taskwolf.core.log.Log;
 import net.taskwolf.table.structure.TableDatabaseTable;
 
 @RequiredArgsConstructor(staticName = "create")
@@ -20,8 +21,10 @@ public class TableInjectionModule extends AbstractModule {
   @Provides
   @Singleton
   @Named("tableConnection")
-  DatabaseConnection provideTableConnection(DatabaseConfiguration configuration) {
-    var tableConnection = DatabaseConnection.create(configuration);
+  DatabaseConnection provideTableConnection(
+    DatabaseConfiguration configuration, Log log
+  ) {
+    var tableConnection = DatabaseConnection.create(configuration, log);
     tableConnection.connect();
     return tableConnection;
   }
