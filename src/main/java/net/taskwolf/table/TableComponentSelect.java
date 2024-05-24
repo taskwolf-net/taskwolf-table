@@ -1,6 +1,7 @@
 package net.taskwolf.table;
 
 import lombok.RequiredArgsConstructor;
+import net.taskwolf.core.user.User;
 import net.taskwolf.core.workflow.component.input.InputComponentSelect;
 import net.taskwolf.table.structure.TableDatabaseTable;
 import org.json.JSONObject;
@@ -17,9 +18,9 @@ public class TableComponentSelect implements InputComponentSelect {
 
   @Override
   public CompletableFuture<List<String>> compile(
-    UUID id, Map<String, String> previousInputs
+    User user, UUID target, Map<String, String> previousInputs
   ) {
-    return tableDatabaseTable.findTablesOfOwner(id)
+    return tableDatabaseTable.findTablesOfOwner(target)
       .thenApply(tables -> tables.stream().map(table ->
         new JSONObject(Map.of("identifier", table.id(), "name",
           table.name())).toString()).collect(Collectors.toList()));
