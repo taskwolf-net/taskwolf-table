@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.access.TaskwolfRestController;
+import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.database.DatabaseColumn;
 import net.taskwolf.core.database.DatabaseDataType;
 import net.taskwolf.core.database.DatabaseTable;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.security.Key;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 @RestController
@@ -32,22 +34,25 @@ public final class TableModificationController extends TaskwolfRestController {
   private final TableDatabaseTable tableDatabaseTable;
   private final TableFactory tableFactory;
   private final UserTargetDatabaseTable userTargetDatabaseTable;
+  private final BundleDatabaseTable bundleDatabaseTable;
   private final CoreModule coreModule;
 
   private TableModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     TableDatabaseTable tableDatabaseTable, TableFactory tableFactory,
-    UserTargetDatabaseTable userTargetDatabaseTable, CoreModule coreModule
+    UserTargetDatabaseTable userTargetDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable, CoreModule coreModule
   ) {
     super(secretKey, userDatabaseTable);
     this.tableDatabaseTable = tableDatabaseTable;
     this.tableFactory = tableFactory;
     this.userTargetDatabaseTable = userTargetDatabaseTable;
+    this.bundleDatabaseTable = bundleDatabaseTable;
     this.coreModule = coreModule;
   }
 
   @RequestMapping(path = "/table/create/", method = RequestMethod.POST)
-  public void createTable(
+  public CompletableFuture<Void> createTable(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
@@ -55,14 +60,29 @@ public final class TableModificationController extends TaskwolfRestController {
     var userId = findUserId(request);
     var name = body.getString("name");
     if (name.isEmpty()) {
-      return;
+      return CompletableFuture.completedFuture(null);
     }
-    userTargetDatabaseTable.findTarget(userId).thenAccept(target ->
-      tableDatabaseTable.generateAvailableTableId().thenAccept(tableId ->
-        createTable(tableId, target, userId, name)));
+    return userTargetDatabaseTable.findTarget(userId).thenCompose(target ->
+      tableDatabaseTable.generateAvailableTableId().thenCompose(tableId ->
+        checkDatabaseNumberLimit(target).thenAccept(limitReached ->
+          createTable(tableId, target, userId, name, limitReached, response))));
   }
 
-  private void createTable(String tableId, UUID owner, UUID creator, String name) {
+  private CompletableFuture<Boolean> checkDatabaseNumberLimit(UUID target) {
+    return bundleDatabaseTable.findBundle(target).thenCompose(bundle ->
+      tableDatabaseTable.findTablesOfOwner(target).thenApply(
+        databases -> bundle.databaseNumberLimit() > 0 &&
+          databases.size() >= bundle.databaseNumberLimit()));
+  }
+
+  private void createTable(
+    String tableId, UUID owner, UUID creator, String name, boolean limitReached,
+    HttpServletResponse response
+  ) {
+    if (limitReached) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return;
+    }
     tableDatabaseTable.insertTable(tableId, owner, creator, name,
       System.currentTimeMillis());
     var defaultColumns = Lists.newArrayList(DatabaseColumn.create("id",
