@@ -25,6 +25,7 @@
   "table.action.entry.insert.output.entry.content": "Entry Content",
   "table.action.entry.insert.output.entry.id": "Entry ID",
   "table.action.entry.insert.failure.table.not.found": "An error occurred while inserting an entry into a database. The error occurred because the selected database could not be found.",
+  "table.action.entry.insert.failure.data.limit.reached": "An error occurred while inserting an entry into a database. The error has occurred because the maximum data size has been reached. No further data can be saved in a database. You can upgrade your package at any time to get additional storage.",
   "table.action.entry.insert.failure.wrong.schema": "An error occurred while inserting an entry into a database. The error occurred because the entered schema does not correspond to the correct one. The content must be in the following format: Column1=Value1, Column2=Value2, ...",
   "table.action.entry.insert.failure.column.not.found": "An error occurred while inserting an entry into a database. The error has occurred because a specified column does not exist.",
   "table.action.entry.insert.failure.column.already.specified": "An error occurred while inserting an entry into a database. The error has occurred because a column was specified twice.",

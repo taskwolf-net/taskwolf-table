@@ -7,6 +7,8 @@ import lombok.experimental.Accessors;
 import net.taskwolf.core.database.DatabaseColumn;
 import net.taskwolf.core.database.DatabaseRow;
 
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectOutputStream;
 import java.util.List;
 
 @Getter
@@ -23,4 +25,19 @@ public final class TableRow {
   }
 
   private final List<TableCell> cells;
+
+  public long size() {
+    var byteOutputStream = new ByteArrayOutputStream();
+    try {
+      var objectOutputStream = new ObjectOutputStream(byteOutputStream);
+      for (var cell : cells) {
+        objectOutputStream.writeObject(cell);
+      }
+      objectOutputStream.flush();
+      return byteOutputStream.toByteArray().length;
+    } catch (Exception exception) {
+      exception.printStackTrace();
+    }
+    return -1;
+  }
 }

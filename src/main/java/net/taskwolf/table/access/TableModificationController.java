@@ -83,33 +83,48 @@ public final class TableModificationController extends TaskwolfRestController {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return;
     }
-    tableDatabaseTable.insertTable(tableId, owner, creator, name,
-      System.currentTimeMillis());
+    var entry = TableEntry.create(tableId, owner, creator, name,
+      System.currentTimeMillis(), 0);
+    tableDatabaseTable.insertTable(entry);
     var defaultColumns = Lists.newArrayList(DatabaseColumn.create("id",
       DatabaseDataType.UUID, DatabaseColumn.Type.PRIMARY_KEY),
       DatabaseColumn.create("data", DatabaseDataType.TEXT));
-    var table = tableFactory.create(tableId, defaultColumns);
+    var table = tableFactory.create(entry, defaultColumns);
     table.createIfNotExists();
   }
 
   @RequestMapping(path = "/table/entry/insert/", method = RequestMethod.POST)
-  public void insertTableEntry(
+  public CompletableFuture<Void> insertTableEntry(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var tableId = body.getString("table");
+    var futureResponse = new CompletableFuture<Void>();
     performTableOperation(findUserId(request), tableId, tableEntry ->
-      tableFactory.create(tableId).thenAccept(table ->
+      tableFactory.create(tableEntry).thenAccept(table ->
         table.generateAvailableContentId().thenAccept(contentId ->
-          insertTableEntry(tableEntry, table, contentId,
-            body.getObject("row").raw().toMap()))));
+          checkDatabaseSizeLimit(tableEntry).thenAccept(limitReached ->
+              insertTableEntry(tableEntry, table, contentId,
+                body.getObject("row").raw().toMap(), limitReached, response))
+            .thenAccept(value -> futureResponse.complete(null)))));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Boolean> checkDatabaseSizeLimit(TableEntry table) {
+    return bundleDatabaseTable.findBundle(table.owner()).thenApply(bundle ->
+      bundle.databaseDataLimit() > 0 && table.size() >= bundle.databaseDataLimit());
   }
 
   private void insertTableEntry(
     TableEntry tableEntry, Table table, UUID contentId,
-    Map<String, Object> rowContent
+    Map<String, Object> rowContent, boolean limitReached,
+    HttpServletResponse response
   ) {
+    if (limitReached) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return;
+    }
     var cells = Lists.<TableCell>newArrayList();
     cells.add(TableCell.create("id", contentId));
     for (var entry : rowContent.entrySet()) {
@@ -135,9 +150,9 @@ public final class TableModificationController extends TaskwolfRestController {
     var body = TaskwolfRequestBody.of(payload, response);
     var tableId = body.getString("table");
     performTableOperation(findUserId(request), tableId, tableEntry ->
-      tableFactory.create(tableId).thenAccept(table ->
+      tableFactory.create(tableEntry).thenAccept(table ->
         insertTableEntry(tableEntry, table, body.getUUID("row"),
-          body.getObject("content").raw().toMap())));
+          body.getObject("content").raw().toMap(), false, response)));
   }
 
   private void updateTableEntry(
@@ -159,7 +174,7 @@ public final class TableModificationController extends TaskwolfRestController {
     var body = TaskwolfRequestBody.of(payload, response);
     var tableId = body.getString("table");
     performTableOperation(findUserId(request), tableId, tableEntry ->
-      tableFactory.create(tableId).thenAccept(table ->
+      tableFactory.create(tableEntry).thenAccept(table ->
         removeTableEntry(tableEntry, table, body.getUUID("row"))));
   }
 
@@ -188,7 +203,7 @@ public final class TableModificationController extends TaskwolfRestController {
       return;
     }
     performTableOperation(findUserId(request), tableId, tableEntry ->
-      tableFactory.create(tableId).thenAccept(table ->
+      tableFactory.create(tableEntry).thenAccept(table ->
         addTableColumn(table, columnName)));
   }
 
@@ -211,7 +226,7 @@ public final class TableModificationController extends TaskwolfRestController {
       return;
     }
     performTableOperation(findUserId(request), tableId, tableEntry ->
-      tableFactory.create(tableId).thenAccept(table ->
+      tableFactory.create(tableEntry).thenAccept(table ->
         removeTableColumn(table, columnName)));
   }
 
@@ -234,7 +249,7 @@ public final class TableModificationController extends TaskwolfRestController {
       return;
     }
     performTableOperation(findUserId(request), tableId, table ->
-      tableDatabaseTable.changeTableName(table.id(), tableName));
+      tableDatabaseTable.changeTableName(table, tableName));
   }
 
   @RequestMapping(path = "/table/delete/", method = RequestMethod.POST)
@@ -250,7 +265,7 @@ public final class TableModificationController extends TaskwolfRestController {
   public void deleteTable(TableEntry tableEntry) {
     var tableId = tableEntry.id();
     tableDatabaseTable.deleteTable(tableId);
-    tableFactory.create(tableId).thenAccept(DatabaseTable::dropIfExists);
+    tableFactory.create(tableEntry).thenAccept(DatabaseTable::dropIfExists);
   }
 
   private void performTableOperation(

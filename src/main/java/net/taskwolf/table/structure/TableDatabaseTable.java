@@ -22,6 +22,7 @@ public final class TableDatabaseTable extends DatabaseTable {
     columns.add(DatabaseColumn.create("creator", DatabaseDataType.UUID));
     columns.add(DatabaseColumn.create("name", DatabaseDataType.TEXT));
     columns.add(DatabaseColumn.create("created", DatabaseDataType.BIGINT));
+    columns.add(DatabaseColumn.create("size", DatabaseDataType.BIGINT));
     return new TableDatabaseTable(connection, keyspace, TABLE_NAME, columns);
   }
 
@@ -36,27 +37,36 @@ public final class TableDatabaseTable extends DatabaseTable {
 
   public void insertTable(TableEntry table) {
     insertTable(table.id(), table.owner(), table.creator(), table.name(),
-      table.created());
+      table.created(), table.size());
   }
 
   public void insertTable(
-    String id, UUID owner, UUID creator, String name, long created
+    String id, UUID owner, UUID creator, String name, long created, long size
   ) {
-    insert(DatabaseRow.of(id, owner, creator, name, created));
+    insert(DatabaseRow.of(id, owner, creator, name, created, size));
   }
 
   public void changeTableName(String id, String name) {
     findTable(id).thenAccept(table -> changeTableName(table, name));
   }
 
-  private void changeTableName(TableEntry entry, String name) {
+  public void changeTableName(TableEntry entry, String name) {
     entry.changeName(name);
+    updateTable(entry);
+  }
+
+  public void updateTableSize(String id, long size) {
+    findTable(id).thenAccept(table -> updateTableSize(table, size));
+  }
+
+  public void updateTableSize(TableEntry entry, long size) {
+    entry.updateSize(size);
     updateTable(entry);
   }
 
   private void updateTable(TableEntry entry) {
     update(DatabaseCell.create(entry.id()), DatabaseRow.of(entry.id(),
-      entry.owner(), entry.creator(), entry.name(), entry.created()));
+      entry.owner(), entry.creator(), entry.name(), entry.created(), entry.size()));
   }
 
   public CompletableFuture<String> generateAvailableTableId() {

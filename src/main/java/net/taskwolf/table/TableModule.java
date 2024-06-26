@@ -4,6 +4,7 @@ import com.google.common.collect.Lists;
 import com.google.inject.Injector;
 import net.taskwolf.core.account.AccountLink;
 import net.taskwolf.core.action.ActionRepository;
+import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.database.DatabaseConnection;
 import net.taskwolf.core.database.DatabaseKeyspace;
 import net.taskwolf.core.log.Log;
@@ -86,7 +87,9 @@ public final class TableModule extends Module {
     var tableFactory = injector().getInstance(TableFactory.class);
     var repository = ActionRepository.create();
     repository.registerAction(TableInsertEntryAction.create(tableComponentSelect,
-      tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
+      tableDatabaseTable, tableFactory,
+      injector().getInstance(BundleDatabaseTable.class), databaseConnection,
+      databaseKeyspace));
     repository.registerAction(TableRemoveEntryAction.create(tableComponentSelect,
       tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
     return repository;

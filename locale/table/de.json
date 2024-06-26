@@ -25,6 +25,7 @@
   "table.action.entry.insert.output.entry.content": "Eintrags Inhalt",
   "table.action.entry.insert.output.entry.id": "Eintrags ID",
   "table.action.entry.insert.failure.table.not.found": "Beim Einfügen eines Eintrags in eine Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Datenbank nicht gefunden werden konnte.",
+  "table.action.entry.insert.failure.data.limit.reached": "Beim Einfügen eines Eintrags in eine Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil die maximale Datengröße erreicht wurde. Es können keine weiteren Daten in einer Datenbank gespeichert werden. Sie können Ihr Paket jederzeit aktualisieren, um zusätzlichen Speicherplatz zu erhalten.",
   "table.action.entry.insert.failure.wrong.schema": "Beim Einfügen eines Eintrags in eine Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil das eingegebene Schema nicht dem korrekten Schema entspricht. Der Inhalt muss in folgendem Format vorliegen: Spalte1=Wert1, Spalte2=Wert2, ...",
   "table.action.entry.insert.failure.column.not.found": "Beim Einfügen eines Eintrags in eine Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil eine angegebene Spalte nicht existiert.",
   "table.action.entry.insert.failure.column.already.specified": "Beim Einfügen eines Eintrags in eine Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil eine Spalte doppelt angegeben wurde.",

@@ -5,6 +5,7 @@ import com.google.common.collect.Lists;
 import lombok.AllArgsConstructor;
 import net.taskwolf.core.action.ActionExecutor;
 import net.taskwolf.core.action.ActionResult;
+import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.database.DatabaseColumn;
 import net.taskwolf.core.workflow.placeholder.PlaceholderDissolve;
 import net.taskwolf.table.structure.*;
@@ -18,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
 public final class TableInsertEntryActionExecutor implements ActionExecutor {
   private final TableDatabaseTable tableDatabaseTable;
   private final TableFactory tableFactory;
+  private final BundleDatabaseTable bundleDatabaseTable;
   private final String tableIdentifier;
   private String entryContent;
 
@@ -33,14 +35,20 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
     if (!tableExists) {
       return ActionResult.futureFailure("table.action.entry.insert.failure.table.not.found");
     }
-    return tableFactory.create(tableIdentifier).thenCompose(table ->
-      table.generateAvailableContentId().thenApply(contentId ->
-        execute(information, table, contentId)));
+    return tableDatabaseTable.findTable(tableIdentifier).thenCompose(tableEntry ->
+      tableFactory.create(tableEntry).thenCompose(table ->
+        checkDatabaseSizeLimit(tableEntry).thenCompose(limitReached ->
+          table.generateAvailableContentId().thenApply(contentId ->
+            execute(information, table, contentId, limitReached)))));
   }
 
   private ActionResult execute(
-    Map<String, Object> information, Table table, UUID contentId
+    Map<String, Object> information, Table table, UUID contentId,
+    boolean limitReached
   ) {
+    if (limitReached) {
+      return ActionResult.failure("table.action.entry.insert.failure.data.limit.reached");
+    }
     var placeholderDissolve = PlaceholderDissolve.create(information);
     entryContent = placeholderDissolve.dissolve(entryContent);
     try {
@@ -106,5 +114,10 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
     information.put("entryContent", entryContent);
     information.put("entryId", entryId);
     return information;
+  }
+
+  private CompletableFuture<Boolean> checkDatabaseSizeLimit(TableEntry table) {
+    return bundleDatabaseTable.findBundle(table.owner()).thenApply(bundle ->
+      bundle.databaseDataLimit() > 0 && table.size() >= bundle.databaseDataLimit());
   }
 }

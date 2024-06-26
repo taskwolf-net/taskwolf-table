@@ -32,8 +32,9 @@ public final class TableRemoveEntryActionExecutor implements ActionExecutor {
     if (!tableExists) {
       return ActionResult.futureFailure("table.action.entry.remove.failure.table.not.found");
     }
-    return tableFactory.create(tableIdentifier).thenCompose(table ->
-      execute(information, table));
+    return tableDatabaseTable.findTable(tableIdentifier).thenCompose(tableEntry ->
+      tableFactory.create(tableEntry).thenCompose(table ->
+        execute(information, table)));
   }
 
   private CompletableFuture<ActionResult> execute(

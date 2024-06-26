@@ -10,28 +10,39 @@ import java.util.concurrent.CompletableFuture;
 
 public final class Table extends DatabaseTable {
   public static CompletableFuture<Table> create(
-    DatabaseConnection connection, DatabaseKeyspace keyspace, String id
+    DatabaseConnection connection, DatabaseKeyspace keyspace,
+    TableDatabaseTable tableDatabaseTable, TableEntry entry
   ) {
-    var table = new Table(connection, keyspace, id, Lists.newArrayList());
+    var table = new Table(connection, keyspace, entry.id(), Lists.newArrayList(),
+      tableDatabaseTable, entry);
     return table.findTableColumns().thenAccept(table::fillColumns)
       .thenApply(value -> table);
   }
 
   public static Table create(
-    DatabaseConnection connection, DatabaseKeyspace keyspace, String id,
-    List<DatabaseColumn> columns
+    DatabaseConnection connection, DatabaseKeyspace keyspace,
+    TableDatabaseTable tableDatabaseTable, List<DatabaseColumn> columns,
+    TableEntry entry
   ) {
-    return new Table(connection, keyspace, id, columns);
+    return new Table(connection, keyspace, entry.id(), columns,
+      tableDatabaseTable, entry);
   }
+
+  private final TableDatabaseTable tableDatabaseTable;
+  private final TableEntry entry;
 
   private Table(
     DatabaseConnection connection, DatabaseKeyspace keyspace, String name,
-    List<DatabaseColumn> columns
+    List<DatabaseColumn> columns, TableDatabaseTable tableDatabaseTable,
+    TableEntry entry
   ) {
     super(connection, keyspace, name, columns);
+    this.tableDatabaseTable = tableDatabaseTable;
+    this.entry = entry;
   }
 
   public void insertContent(TableRow row) {
+    tableDatabaseTable.updateTableSize(entry, entry.size() + row.size());
     insert(DatabaseRow.of(createRowValues(row)));
   }
 
@@ -80,7 +91,11 @@ public final class Table extends DatabaseTable {
   }
 
   public void removeContent(UUID id) {
-    delete(DatabaseCell.create(id));
+    selectRow(DatabaseCell.create(id))
+      .thenApply(row -> TableRow.of(row, columns()))
+      .thenAccept(row -> tableDatabaseTable.updateTableSize(entry,
+        entry.size() - row.size()))
+      .thenAccept(value -> delete(DatabaseCell.create(id)));
   }
 
   private CompletableFuture<List<DatabaseColumn>> findTableColumns() {
@@ -124,5 +139,16 @@ public final class Table extends DatabaseTable {
     }
     return DatabaseColumn.create(columnName, DatabaseDataType.valueOf(dataType),
       columnType);
+  }
+
+  @Override
+  public CompletableFuture<Void> dropColumn(String columnName) {
+    return super.dropColumn(columnName).thenAccept(value -> recalculateTableSize());
+  }
+
+  private void recalculateTableSize() {
+    selectAllRows().thenApply(rows -> rows.stream()
+        .mapToLong(row -> TableRow.of(row, columns()).size()).sum())
+      .thenAccept(size -> tableDatabaseTable.updateTableSize(entry, size));
   }
 }

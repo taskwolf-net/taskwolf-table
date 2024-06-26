@@ -14,21 +14,25 @@ import java.util.concurrent.CompletableFuture;
 public final class TableFactory {
   private final DatabaseConnection tableConnection;
   private final DatabaseKeyspace tableKeyspace;
+  private final TableDatabaseTable tableDatabaseTable;
 
   @Inject
   private TableFactory(
     @Named("tableConnection") DatabaseConnection tableConnection,
-    @Named("tableKeyspace") DatabaseKeyspace tableKeyspace
+    @Named("tableKeyspace") DatabaseKeyspace tableKeyspace,
+    TableDatabaseTable tableDatabaseTable
   ) {
     this.tableConnection = tableConnection;
     this.tableKeyspace = tableKeyspace;
+    this.tableDatabaseTable = tableDatabaseTable;
   }
 
-  public CompletableFuture<Table> create(String id) {
-    return Table.create(tableConnection, tableKeyspace, id);
+  public CompletableFuture<Table> create(TableEntry entry) {
+    return Table.create(tableConnection, tableKeyspace, tableDatabaseTable, entry);
   }
 
-  public Table create(String id, List<DatabaseColumn> columns) {
-    return Table.create(tableConnection, tableKeyspace, id, columns);
+  public Table create(TableEntry entry, List<DatabaseColumn> columns) {
+    return Table.create(tableConnection, tableKeyspace, tableDatabaseTable,
+      columns, entry);
   }
 }
