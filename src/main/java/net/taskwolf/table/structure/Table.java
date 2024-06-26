@@ -180,6 +180,11 @@ public final class Table extends DatabaseTable {
   }
 
   @Override
+  public CompletableFuture<Void> addColumn(DatabaseColumn column) {
+    return super.addColumn(column).thenAccept(value -> recalculateTableSize());
+  }
+
+  @Override
   public CompletableFuture<Void> dropColumn(String columnName) {
     return super.dropColumn(columnName).thenAccept(value -> recalculateTableSize());
   }
