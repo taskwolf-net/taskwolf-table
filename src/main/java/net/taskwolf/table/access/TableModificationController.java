@@ -104,16 +104,11 @@ public final class TableModificationController extends TaskwolfRestController {
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableEntry).thenAccept(table ->
         table.generateAvailableContentId().thenAccept(contentId ->
-          checkDatabaseSizeLimit(tableEntry).thenAccept(limitReached ->
+          checkDatabaseSizeLimit(tableEntry.owner()).thenAccept(limitReached ->
               insertTableEntry(tableEntry, table, contentId,
                 body.getObject("row").raw().toMap(), limitReached, response))
             .thenAccept(value -> futureResponse.complete(null)))));
     return futureResponse;
-  }
-
-  private CompletableFuture<Boolean> checkDatabaseSizeLimit(TableEntry table) {
-    return bundleDatabaseTable.findBundle(table.owner()).thenApply(bundle ->
-      bundle.databaseDataLimit() > 0 && table.size() >= bundle.databaseDataLimit());
   }
 
   private void insertTableEntry(
@@ -131,7 +126,7 @@ public final class TableModificationController extends TaskwolfRestController {
       cells.add(TableCell.create(entry.getKey(), entry.getValue()));
     }
     table.insertContent(TableRow.create(cells));
-    coreModule.triggerWorkflows("database", "database-entry-insert-trigger",
+    coreModule.triggerWorkflows("table", "database-entry-insert-trigger",
       "table='" + tableEntry.id() + "'", tableInsertInformation(table, contentId));
   }
 
@@ -143,27 +138,44 @@ public final class TableModificationController extends TaskwolfRestController {
   }
 
   @RequestMapping(path = "/table/entry/update/", method = RequestMethod.POST)
-  public void updateTableEntry(
+  public CompletableFuture<Void> updateTableEntry(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var tableId = body.getString("table");
+    var futureResponse = new CompletableFuture<Void>();
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableEntry).thenAccept(table ->
-        insertTableEntry(tableEntry, table, body.getUUID("row"),
-          body.getObject("content").raw().toMap(), false, response)));
+        checkDatabaseSizeLimit(tableEntry.owner()).thenAccept(limitReached ->
+          updateTableEntry(table, body.getUUID("row"),
+            body.getObject("content").raw().toMap(), limitReached, response))
+          .thenAccept(value -> futureResponse.complete(null))));
+    return futureResponse;
   }
 
   private void updateTableEntry(
-    Table table, UUID rowId, Map<String, Object> rowContent
+    Table table, UUID rowId, Map<String, Object> rowContent,
+    boolean limitReached, HttpServletResponse response
   ) {
+    if (limitReached) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return;
+    }
     var cells = Lists.<TableCell>newArrayList();
     cells.add(TableCell.create("id", rowId));
     for (var entry : rowContent.entrySet()) {
       cells.add(TableCell.create(entry.getKey(), entry.getValue()));
     }
     table.updateContent(rowId, TableRow.create(cells));
+  }
+
+  private CompletableFuture<Boolean> checkDatabaseSizeLimit(UUID target) {
+    return bundleDatabaseTable.findBundle(target).thenCompose(bundle ->
+      tableDatabaseTable.findTablesOfOwner(target).thenApply(tables ->
+          tables.stream().mapToLong(TableEntry::size).sum())
+        .thenApply(dataSize -> bundle.databaseDataLimit() > 0 &&
+          dataSize * Math.pow(10, -9) >= bundle.databaseDataLimit()));
   }
 
   @RequestMapping(path = "/table/entry/remove/", method = RequestMethod.POST)
@@ -180,7 +192,7 @@ public final class TableModificationController extends TaskwolfRestController {
 
   private void removeTableEntry(TableEntry tableEntry, Table table, UUID rowId) {
     table.removeContent(rowId);
-    coreModule.triggerWorkflows("database", "database-entry-remove-trigger",
+    coreModule.triggerWorkflows("table", "database-entry-remove-trigger",
       "table='" + tableEntry.id() + "'", tableRemoveInformation(table, rowId));
   }
 

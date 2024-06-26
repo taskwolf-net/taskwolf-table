@@ -56,7 +56,12 @@ public final class Table extends DatabaseTable {
   }
 
   public void updateContent(UUID id, TableRow row) {
-    update(DatabaseCell.create(id), DatabaseRow.of(createRowValues(row)));
+    selectRow(DatabaseCell.create(id))
+      .thenApply(previousRow -> TableRow.of(previousRow, columns()))
+      .thenAccept(previousRow -> tableDatabaseTable.updateTableSize(entry,
+        entry.size() - previousRow.size() + row.size()))
+      .thenAccept(value -> update(DatabaseCell.create(id),
+        DatabaseRow.of(createRowValues(row))));
   }
 
   private Object[] createRowValues(TableRow row) {

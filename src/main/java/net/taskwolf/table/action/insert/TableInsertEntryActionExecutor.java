@@ -37,7 +37,7 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
     }
     return tableDatabaseTable.findTable(tableIdentifier).thenCompose(tableEntry ->
       tableFactory.create(tableEntry).thenCompose(table ->
-        checkDatabaseSizeLimit(tableEntry).thenCompose(limitReached ->
+        checkDatabaseSizeLimit(tableEntry.owner()).thenCompose(limitReached ->
           table.generateAvailableContentId().thenApply(contentId ->
             execute(information, table, contentId, limitReached)))));
   }
@@ -116,8 +116,11 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
     return information;
   }
 
-  private CompletableFuture<Boolean> checkDatabaseSizeLimit(TableEntry table) {
-    return bundleDatabaseTable.findBundle(table.owner()).thenApply(bundle ->
-      bundle.databaseDataLimit() > 0 && table.size() >= bundle.databaseDataLimit());
+  private CompletableFuture<Boolean> checkDatabaseSizeLimit(UUID target) {
+    return bundleDatabaseTable.findBundle(target).thenCompose(bundle ->
+      tableDatabaseTable.findTablesOfOwner(target).thenApply(tables ->
+          tables.stream().mapToLong(TableEntry::size).sum())
+        .thenApply(dataSize -> bundle.databaseDataLimit() > 0 &&
+          dataSize * Math.pow(10, -9) >= bundle.databaseDataLimit()));
   }
 }

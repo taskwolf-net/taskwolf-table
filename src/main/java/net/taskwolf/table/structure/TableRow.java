@@ -31,7 +31,7 @@ public final class TableRow {
     try {
       var objectOutputStream = new ObjectOutputStream(byteOutputStream);
       for (var cell : cells) {
-        objectOutputStream.writeObject(cell);
+        objectOutputStream.writeObject(cell.value());
       }
       objectOutputStream.flush();
       return byteOutputStream.toByteArray().length;
