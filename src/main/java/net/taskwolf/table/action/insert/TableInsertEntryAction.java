@@ -23,22 +23,19 @@ public final class TableInsertEntryAction implements Action<TableInsertEntryActi
   public static TableInsertEntryAction create(
     InputComponentSelect tableComponentSelect,
     TableDatabaseTable tableDatabaseTable, TableFactory tableFactory,
-    BundleDatabaseTable bundleDatabaseTable,
     DatabaseConnection databaseConnection, DatabaseKeyspace databaseKeyspace
   ) {
     var contentColumns = Lists.<DatabaseColumn>newArrayList();
     contentColumns.add(DatabaseColumn.create("tableId", DatabaseDataType.TEXT));
     contentColumns.add(DatabaseColumn.create("content", DatabaseDataType.TEXT));
     return new TableInsertEntryAction(tableComponentSelect, tableDatabaseTable,
-      tableFactory, bundleDatabaseTable, ActionContentDatabaseTable.create(
-        databaseConnection, databaseKeyspace, "action_database_entry_insert",
-      contentColumns));
+      tableFactory, ActionContentDatabaseTable.create(databaseConnection,
+      databaseKeyspace, "action_database_entry_insert", contentColumns));
   }
 
   private final InputComponentSelect tableComponentSelect;
   private final TableDatabaseTable tableDatabaseTable;
   private final TableFactory tableFactory;
-  private final BundleDatabaseTable bundleDatabaseTable;
   private final ActionContentDatabaseTable contentDatabaseTable;
 
   @Override
@@ -84,8 +81,7 @@ public final class TableInsertEntryAction implements Action<TableInsertEntryActi
   public CompletableFuture<TableInsertEntryActionExecutor> build(UUID actionId) {
     return contentDatabaseTable.findContent(actionId).thenApply(content ->
       TableInsertEntryActionExecutor.create(tableDatabaseTable, tableFactory,
-        bundleDatabaseTable, content.findCell(1).stringValue(),
-        content.findCell(2).stringValue()));
+        content.findCell(1).stringValue(), content.findCell(2).stringValue()));
   }
 
   @Override

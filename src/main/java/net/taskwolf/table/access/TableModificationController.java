@@ -104,30 +104,26 @@ public final class TableModificationController extends TaskwolfRestController {
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableEntry).thenAccept(table ->
         table.generateAvailableContentId().thenAccept(contentId ->
-          checkDatabaseSizeLimit(tableEntry.owner()).thenAccept(limitReached ->
-              insertTableEntry(tableEntry, table, contentId,
-                body.getObject("row").raw().toMap(), limitReached, response))
+          insertTableEntry(tableEntry, table, contentId,
+            body.getObject("row").raw().toMap(), response)
             .thenAccept(value -> futureResponse.complete(null)))));
     return futureResponse;
   }
 
-  private void insertTableEntry(
+  private CompletableFuture<Void> insertTableEntry(
     TableEntry tableEntry, Table table, UUID contentId,
-    Map<String, Object> rowContent, boolean limitReached,
-    HttpServletResponse response
+    Map<String, Object> rowContent, HttpServletResponse response
   ) {
-    if (limitReached) {
-      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      return;
-    }
     var cells = Lists.<TableCell>newArrayList();
     cells.add(TableCell.create("id", contentId));
     for (var entry : rowContent.entrySet()) {
       cells.add(TableCell.create(entry.getKey(), entry.getValue()));
     }
-    table.insertContent(TableRow.create(cells));
     coreModule.triggerWorkflows("table", "database-entry-insert-trigger",
       "table='" + tableEntry.id() + "'", tableInsertInformation(table, contentId));
+    return table.insertContent(TableRow.create(cells))
+      .thenAccept(success -> response.setStatus(success ?
+        HttpServletResponse.SC_OK : HttpServletResponse.SC_BAD_REQUEST));
   }
 
   private Map<String, Object> tableInsertInformation(Table table, UUID entryId) {
@@ -147,35 +143,24 @@ public final class TableModificationController extends TaskwolfRestController {
     var futureResponse = new CompletableFuture<Void>();
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableEntry).thenAccept(table ->
-        checkDatabaseSizeLimit(tableEntry.owner()).thenAccept(limitReached ->
-          updateTableEntry(table, body.getUUID("row"),
-            body.getObject("content").raw().toMap(), limitReached, response))
+        updateTableEntry(table, body.getUUID("row"),
+          body.getObject("content").raw().toMap(), response)
           .thenAccept(value -> futureResponse.complete(null))));
     return futureResponse;
   }
 
-  private void updateTableEntry(
+  private CompletableFuture<Void> updateTableEntry(
     Table table, UUID rowId, Map<String, Object> rowContent,
-    boolean limitReached, HttpServletResponse response
+    HttpServletResponse response
   ) {
-    if (limitReached) {
-      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      return;
-    }
     var cells = Lists.<TableCell>newArrayList();
     cells.add(TableCell.create("id", rowId));
     for (var entry : rowContent.entrySet()) {
       cells.add(TableCell.create(entry.getKey(), entry.getValue()));
     }
-    table.updateContent(rowId, TableRow.create(cells));
-  }
-
-  private CompletableFuture<Boolean> checkDatabaseSizeLimit(UUID target) {
-    return bundleDatabaseTable.findBundle(target).thenCompose(bundle ->
-      tableDatabaseTable.findTablesOfOwner(target).thenApply(tables ->
-          tables.stream().mapToLong(TableEntry::size).sum())
-        .thenApply(dataSize -> bundle.databaseDataLimit() > 0 &&
-          dataSize * Math.pow(10, -9) >= bundle.databaseDataLimit()));
+    return table.updateContent(rowId, TableRow.create(cells))
+      .thenAccept(success -> response.setStatus(success ?
+        HttpServletResponse.SC_OK : HttpServletResponse.SC_BAD_REQUEST));
   }
 
   @RequestMapping(path = "/table/entry/remove/", method = RequestMethod.POST)

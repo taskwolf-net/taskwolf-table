@@ -2,6 +2,7 @@ package net.taskwolf.table.structure;
 
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.google.common.collect.Lists;
+import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.database.*;
 
 import java.util.List;
@@ -11,39 +12,52 @@ import java.util.concurrent.CompletableFuture;
 public final class Table extends DatabaseTable {
   public static CompletableFuture<Table> create(
     DatabaseConnection connection, DatabaseKeyspace keyspace,
-    TableDatabaseTable tableDatabaseTable, TableEntry entry
+    BundleDatabaseTable bundleDatabaseTable, TableDatabaseTable tableDatabaseTable,
+    TableEntry entry
   ) {
     var table = new Table(connection, keyspace, entry.id(), Lists.newArrayList(),
-      tableDatabaseTable, entry);
+      bundleDatabaseTable, tableDatabaseTable, entry);
     return table.findTableColumns().thenAccept(table::fillColumns)
       .thenApply(value -> table);
   }
 
   public static Table create(
     DatabaseConnection connection, DatabaseKeyspace keyspace,
-    TableDatabaseTable tableDatabaseTable, List<DatabaseColumn> columns,
-    TableEntry entry
+    BundleDatabaseTable bundleDatabaseTable, TableDatabaseTable tableDatabaseTable,
+    List<DatabaseColumn> columns, TableEntry entry
   ) {
     return new Table(connection, keyspace, entry.id(), columns,
-      tableDatabaseTable, entry);
+      bundleDatabaseTable, tableDatabaseTable, entry);
   }
 
+  private final BundleDatabaseTable bundleDatabaseTable;
   private final TableDatabaseTable tableDatabaseTable;
   private final TableEntry entry;
 
   private Table(
     DatabaseConnection connection, DatabaseKeyspace keyspace, String name,
-    List<DatabaseColumn> columns, TableDatabaseTable tableDatabaseTable,
-    TableEntry entry
+    List<DatabaseColumn> columns, BundleDatabaseTable bundleDatabaseTable,
+    TableDatabaseTable tableDatabaseTable, TableEntry entry
   ) {
     super(connection, keyspace, name, columns);
+    this.bundleDatabaseTable = bundleDatabaseTable;
     this.tableDatabaseTable = tableDatabaseTable;
     this.entry = entry;
   }
 
-  public void insertContent(TableRow row) {
-    tableDatabaseTable.updateTableSize(entry, entry.size() + row.size());
+  public CompletableFuture<Boolean> insertContent(TableRow row) {
+    var size = entry.size() + row.size();
+    return checkDatabaseSizeLimit(size).thenApply(limitReached ->
+      insertContent(row, size, limitReached));
+  }
+
+  private boolean insertContent(TableRow row, long size, boolean limitReached) {
+    if (limitReached) {
+      return false;
+    }
+    tableDatabaseTable.updateTableSize(entry, size);
     insert(DatabaseRow.of(createRowValues(row)));
+    return true;
   }
 
   public CompletableFuture<UUID> generateAvailableContentId() {
@@ -55,13 +69,32 @@ public final class Table extends DatabaseTable {
     return futureResponse;
   }
 
-  public void updateContent(UUID id, TableRow row) {
-    selectRow(DatabaseCell.create(id))
+  public CompletableFuture<Boolean> updateContent(UUID id, TableRow row) {
+    return selectRow(DatabaseCell.create(id))
       .thenApply(previousRow -> TableRow.of(previousRow, columns()))
-      .thenAccept(previousRow -> tableDatabaseTable.updateTableSize(entry,
-        entry.size() - previousRow.size() + row.size()))
-      .thenAccept(value -> update(DatabaseCell.create(id),
-        DatabaseRow.of(createRowValues(row))));
+      .thenApply(previousRow -> entry.size() - previousRow.size() + row.size())
+      .thenCompose(size -> checkDatabaseSizeLimit(size)
+        .thenApply(limitReached -> updateContent(id, row, size, limitReached)));
+  }
+
+  private boolean updateContent(
+    UUID id, TableRow row, long size, boolean limitReached
+  ) {
+    if (limitReached) {
+      return false;
+    }
+    tableDatabaseTable.updateTableSize(entry, size);
+    update(DatabaseCell.create(id), DatabaseRow.of(createRowValues(row)));
+    return true;
+  }
+
+  private CompletableFuture<Boolean> checkDatabaseSizeLimit(long size) {
+    return bundleDatabaseTable.findBundle(entry.owner()).thenCompose(bundle ->
+      tableDatabaseTable.findTablesOfOwner(entry.owner()).thenApply(tables ->
+          tables.stream().filter(table -> !table.id().equals(entry.id()))
+            .mapToLong(TableEntry::size).sum() + size)
+        .thenApply(dataSize -> bundle.databaseDataLimit() > 0 &&
+          dataSize * Math.pow(10, -9) >= bundle.databaseDataLimit()));
   }
 
   private Object[] createRowValues(TableRow row) {

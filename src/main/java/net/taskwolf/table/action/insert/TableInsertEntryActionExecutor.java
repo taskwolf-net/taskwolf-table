@@ -19,7 +19,6 @@ import java.util.concurrent.CompletableFuture;
 public final class TableInsertEntryActionExecutor implements ActionExecutor {
   private final TableDatabaseTable tableDatabaseTable;
   private final TableFactory tableFactory;
-  private final BundleDatabaseTable bundleDatabaseTable;
   private final String tableIdentifier;
   private String entryContent;
 
@@ -37,26 +36,22 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
     }
     return tableDatabaseTable.findTable(tableIdentifier).thenCompose(tableEntry ->
       tableFactory.create(tableEntry).thenCompose(table ->
-        checkDatabaseSizeLimit(tableEntry.owner()).thenCompose(limitReached ->
-          table.generateAvailableContentId().thenApply(contentId ->
-            execute(information, table, contentId, limitReached)))));
+        table.generateAvailableContentId().thenCompose(contentId ->
+          execute(information, table, contentId))));
   }
 
-  private ActionResult execute(
-    Map<String, Object> information, Table table, UUID contentId,
-    boolean limitReached
+  private CompletableFuture<ActionResult> execute(
+    Map<String, Object> information, Table table, UUID contentId
   ) {
-    if (limitReached) {
-      return ActionResult.failure("table.action.entry.insert.failure.data.limit.reached");
-    }
     var placeholderDissolve = PlaceholderDissolve.create(information);
     entryContent = placeholderDissolve.dissolve(entryContent);
     try {
       var cells = createCells(table, contentId);
-      table.insertContent(TableRow.create(cells));
-      return ActionResult.success(buildInformation(table, contentId));
+      return table.insertContent(TableRow.create(cells)).thenApply(success ->
+        success ? ActionResult.success(buildInformation(table, contentId)) :
+          ActionResult.failure("table.action.entry.insert.failure.data.limit.reached"));
     } catch (Exception exception) {
-      return ActionResult.failure(exception.getMessage());
+      return ActionResult.futureFailure(exception.getMessage());
     }
   }
 
@@ -114,13 +109,5 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
     information.put("entryContent", entryContent);
     information.put("entryId", entryId);
     return information;
-  }
-
-  private CompletableFuture<Boolean> checkDatabaseSizeLimit(UUID target) {
-    return bundleDatabaseTable.findBundle(target).thenCompose(bundle ->
-      tableDatabaseTable.findTablesOfOwner(target).thenApply(tables ->
-          tables.stream().mapToLong(TableEntry::size).sum())
-        .thenApply(dataSize -> bundle.databaseDataLimit() > 0 &&
-          dataSize * Math.pow(10, -9) >= bundle.databaseDataLimit()));
   }
 }

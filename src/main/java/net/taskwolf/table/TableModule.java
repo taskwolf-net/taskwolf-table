@@ -87,9 +87,7 @@ public final class TableModule extends Module {
     var tableFactory = injector().getInstance(TableFactory.class);
     var repository = ActionRepository.create();
     repository.registerAction(TableInsertEntryAction.create(tableComponentSelect,
-      tableDatabaseTable, tableFactory,
-      injector().getInstance(BundleDatabaseTable.class), databaseConnection,
-      databaseKeyspace));
+      tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
     repository.registerAction(TableRemoveEntryAction.create(tableComponentSelect,
       tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
     return repository;
