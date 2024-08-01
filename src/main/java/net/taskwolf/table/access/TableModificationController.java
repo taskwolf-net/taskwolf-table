@@ -87,9 +87,8 @@ public final class TableModificationController extends TableController {
           tableDatabaseTable().findTablesOfOwner(owner).thenApply(List::size))
         .thenApply(sizes -> sizes.stream().mapToInt(Integer::intValue).sum())
         .thenCompose(number -> bundleDatabaseTable.findBundle(target)
-          .thenCompose(bundle -> tableDatabaseTable().findTablesOfOwner(target)
-            .thenApply(databases -> bundle.databaseNumberLimit() > 0 &&
-              number >= bundle.databaseNumberLimit()))));
+          .thenApply(bundle -> bundle.databaseNumberLimit() > 0 &&
+            number >= bundle.databaseNumberLimit())));
   }
 
   private CompletableFuture<List<UUID>> findOwnersOfTarget(User user, UUID target) {
