@@ -6,48 +6,50 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.CoreModule;
 import net.taskwolf.core.access.TaskwolfRequestBody;
-import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.database.DatabaseColumn;
 import net.taskwolf.core.database.DatabaseDataType;
 import net.taskwolf.core.database.DatabaseTable;
-import net.taskwolf.core.trigger.TriggerEntry;
+import net.taskwolf.core.iterator.AsyncIterator;
+import net.taskwolf.core.organization.team.Team;
+import net.taskwolf.core.organization.team.TeamDatabaseTable;
+import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
+import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.table.structure.*;
-import net.taskwolf.table.trigger.insert.TableInsertEntryTrigger;
-import net.taskwolf.table.trigger.remove.TableRemoveEntryTrigger;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 @RestController
-public final class TableModificationController extends TaskwolfRestController {
-  private final TableDatabaseTable tableDatabaseTable;
+public final class TableModificationController extends TableController {
   private final TableFactory tableFactory;
-  private final UserTargetDatabaseTable userTargetDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
+  private final TeamDatabaseTable teamDatabaseTable;
   private final CoreModule coreModule;
 
   private TableModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    TableDatabaseTable tableDatabaseTable, TableFactory tableFactory,
+    TableDatabaseTable tableDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
-    BundleDatabaseTable bundleDatabaseTable, CoreModule coreModule
+    TeamTargetDatabaseTable teamTargetDatabaseTable,
+    TableFactory tableFactory, BundleDatabaseTable bundleDatabaseTable,
+    TeamDatabaseTable teamDatabaseTable, CoreModule coreModule
   ) {
-    super(secretKey, userDatabaseTable);
-    this.tableDatabaseTable = tableDatabaseTable;
+    super(secretKey, userDatabaseTable, tableDatabaseTable,
+      userTargetDatabaseTable, teamTargetDatabaseTable);
     this.tableFactory = tableFactory;
-    this.userTargetDatabaseTable = userTargetDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
+    this.teamDatabaseTable = teamDatabaseTable;
     this.coreModule = coreModule;
   }
 
@@ -57,22 +59,45 @@ public final class TableModificationController extends TaskwolfRestController {
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var userId = findUserId(request);
     var name = body.getString("name");
     if (name.isEmpty()) {
       return CompletableFuture.completedFuture(null);
     }
-    return userTargetDatabaseTable.findTarget(userId).thenCompose(target ->
-      tableDatabaseTable.generateAvailableTableId().thenCompose(tableId ->
-        checkDatabaseNumberLimit(target).thenAccept(limitReached ->
-          createTable(tableId, target, userId, name, limitReached, response))));
+    return findUser(request).thenCompose(user ->
+      userTargetDatabaseTable().findTarget(user.id()).thenCompose(target ->
+        findTableOwner(user, target).thenCompose(owner ->
+          tableDatabaseTable().generateAvailableTableId().thenCompose(tableId ->
+            checkDatabaseNumberLimit(user, target).thenAccept(limitReached ->
+              createTable(tableId, owner, user.id(), name,
+                limitReached, response))))));
   }
 
-  private CompletableFuture<Boolean> checkDatabaseNumberLimit(UUID target) {
-    return bundleDatabaseTable.findBundle(target).thenCompose(bundle ->
-      tableDatabaseTable.findTablesOfOwner(target).thenApply(
-        databases -> bundle.databaseNumberLimit() > 0 &&
-          databases.size() >= bundle.databaseNumberLimit()));
+  private CompletableFuture<UUID> findTableOwner(User user, UUID target) {
+    return user.id().equals(target) ?
+      CompletableFuture.completedFuture(target) :
+      teamTargetDatabaseTable().findTargetSecured(user.id())
+        .thenApply(team -> team.orElse(target));
+  }
+
+  private CompletableFuture<Boolean> checkDatabaseNumberLimit(
+    User user, UUID target
+  ) {
+    return findOwnersOfTarget(user, target)
+      .thenCompose(owners -> AsyncIterator.execute(owners, owner ->
+          tableDatabaseTable().findTablesOfOwner(owner).thenApply(List::size))
+        .thenApply(sizes -> sizes.stream().mapToInt(Integer::intValue).sum())
+        .thenCompose(number -> bundleDatabaseTable.findBundle(target)
+          .thenCompose(bundle -> tableDatabaseTable().findTablesOfOwner(target)
+            .thenApply(databases -> bundle.databaseNumberLimit() > 0 &&
+              number >= bundle.databaseNumberLimit()))));
+  }
+
+  private CompletableFuture<List<UUID>> findOwnersOfTarget(User user, UUID target) {
+    return user.id().equals(target) ?
+      CompletableFuture.completedFuture(Lists.newArrayList(target)) :
+      teamDatabaseTable.findTeamsByOrganization(target).thenApply(teams ->
+        Stream.concat(teams.stream().map(Team::id).toList().stream(),
+          Stream.of(target)).toList());
   }
 
   private void createTable(
@@ -85,7 +110,7 @@ public final class TableModificationController extends TaskwolfRestController {
     }
     var entry = TableEntry.create(tableId, owner, creator, name,
       System.currentTimeMillis(), 0);
-    tableDatabaseTable.insertTable(entry);
+    tableDatabaseTable().insertTable(entry);
     var defaultColumns = Lists.newArrayList(DatabaseColumn.create("id",
       DatabaseDataType.UUID, DatabaseColumn.Type.PRIMARY_KEY),
       DatabaseColumn.create("data", DatabaseDataType.TEXT));
@@ -106,7 +131,7 @@ public final class TableModificationController extends TaskwolfRestController {
         table.generateAvailableContentId().thenAccept(contentId ->
           insertTableEntry(tableEntry, table, contentId,
             body.getObject("row").raw().toMap(), response)
-            .thenAccept(value -> futureResponse.complete(null)))));
+            .thenAccept(value -> futureResponse.complete(null)))), () -> {});
     return futureResponse;
   }
 
@@ -145,7 +170,7 @@ public final class TableModificationController extends TaskwolfRestController {
       tableFactory.create(tableEntry).thenAccept(table ->
         updateTableEntry(table, body.getUUID("row"),
           body.getObject("content").raw().toMap(), response)
-          .thenAccept(value -> futureResponse.complete(null))));
+          .thenAccept(value -> futureResponse.complete(null))), () -> {});
     return futureResponse;
   }
 
@@ -169,10 +194,9 @@ public final class TableModificationController extends TaskwolfRestController {
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var tableId = body.getString("table");
-    performTableOperation(findUserId(request), tableId, tableEntry ->
-      tableFactory.create(tableEntry).thenAccept(table ->
-        removeTableEntry(tableEntry, table, body.getUUID("row"))));
+    performTableOperation(findUserId(request), body.getString("table"),
+      tableEntry -> tableFactory.create(tableEntry).thenAccept(table ->
+        removeTableEntry(tableEntry, table, body.getUUID("row"))), () -> {});
   }
 
   private void removeTableEntry(TableEntry tableEntry, Table table, UUID rowId) {
@@ -201,7 +225,7 @@ public final class TableModificationController extends TaskwolfRestController {
     }
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableEntry).thenAccept(table ->
-        addTableColumn(table, columnName)));
+        addTableColumn(table, columnName)), () -> {});
   }
 
   private void addTableColumn(Table table, String columnName) {
@@ -224,7 +248,7 @@ public final class TableModificationController extends TaskwolfRestController {
     }
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableEntry).thenAccept(table ->
-        removeTableColumn(table, columnName)));
+        removeTableColumn(table, columnName)), () -> {});
   }
 
   private void removeTableColumn(Table table, String columnName) {
@@ -246,7 +270,7 @@ public final class TableModificationController extends TaskwolfRestController {
       return;
     }
     performTableOperation(findUserId(request), tableId, table ->
-      tableDatabaseTable.changeTableName(table, tableName));
+      tableDatabaseTable().changeTableName(table, tableName), () -> {});
   }
 
   @RequestMapping(path = "/table/delete/", method = RequestMethod.POST)
@@ -255,40 +279,13 @@ public final class TableModificationController extends TaskwolfRestController {
     HttpServletResponse response
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
-    var tableId = body.getString("table");
-    performTableOperation(findUserId(request), tableId, this::deleteTable);
+    performTableOperation(findUserId(request), body.getString("table"),
+      this::deleteTable, () -> {});
   }
 
   public void deleteTable(TableEntry tableEntry) {
     var tableId = tableEntry.id();
-    tableDatabaseTable.deleteTable(tableId);
+    tableDatabaseTable().deleteTable(tableId);
     tableFactory.create(tableEntry).thenAccept(DatabaseTable::dropIfExists);
-  }
-
-  private void performTableOperation(
-    UUID userId, String tableId, Consumer<TableEntry> operation
-  ) {
-    userTargetDatabaseTable.findTarget(userId).thenAccept(target ->
-      tableDatabaseTable.tableExists(tableId).thenAccept(exists ->
-        performTableOperation(target, tableId, exists, operation)));
-  }
-
-  private void performTableOperation(
-    UUID target, String tableId, boolean tableExists, Consumer<TableEntry> operation
-  ) {
-    if (!tableExists) {
-      return;
-    }
-    tableDatabaseTable.findTable(tableId).thenAccept(table ->
-      performTableOperation(target, table, operation));
-  }
-
-  private void performTableOperation(
-    UUID target, TableEntry table, Consumer<TableEntry> operation
-  ) {
-    if (!target.equals(table.owner())) {
-      return;
-    }
-    operation.accept(table);
   }
 }

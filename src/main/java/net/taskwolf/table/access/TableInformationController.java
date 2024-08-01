@@ -5,9 +5,9 @@ import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
-import net.taskwolf.core.access.TaskwolfRestController;
 import net.taskwolf.core.database.DatabaseColumn;
 import net.taskwolf.core.iterator.AsyncIterator;
+import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.table.structure.*;
@@ -19,35 +19,30 @@ import org.springframework.web.bind.annotation.RestController;
 import java.security.Key;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class TableInformationController extends TaskwolfRestController {
-  private final TableDatabaseTable tableDatabaseTable;
+public final class TableInformationController extends TableController {
   private final TableFactory tableFactory;
-  private final UserTargetDatabaseTable userTargetDatabaseTable;
 
   private TableInformationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
-    TableDatabaseTable tableDatabaseTable, TableFactory tableFactory,
-    UserTargetDatabaseTable userTargetDatabaseTable
+    TableDatabaseTable tableDatabaseTable,
+    UserTargetDatabaseTable userTargetDatabaseTable,
+    TeamTargetDatabaseTable teamTargetDatabaseTable,
+    TableFactory tableFactory
   ) {
-    super(secretKey, userDatabaseTable);
-    this.tableDatabaseTable = tableDatabaseTable;
+    super(secretKey, userDatabaseTable, tableDatabaseTable,
+      userTargetDatabaseTable, teamTargetDatabaseTable);
     this.tableFactory = tableFactory;
-    this.userTargetDatabaseTable = userTargetDatabaseTable;
   }
 
   @RequestMapping(path = "/tables/find/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findTables(
     HttpServletRequest request
   ) {
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    userTargetDatabaseTable.findTargetSecured(findUserId(request)).thenAccept(
-      target -> tableDatabaseTable.findTablesOfOwner(target).thenAccept(entries ->
-        findTables(entries).thenAccept(futureResponse::complete)));
-    return futureResponse;
+    return findUser(request).thenCompose(user -> findViewableTables(user.id())
+      .thenCompose(this::findTables));
   }
 
   private CompletableFuture<Map<String, Object>> findTables(
@@ -68,37 +63,11 @@ public final class TableInformationController extends TaskwolfRestController {
   ) {
     var body = TaskwolfRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var tableId = body.getString("table");
-    var userId = findUserId(request);
-    tableDatabaseTable.tableExists(tableId)
-      .thenAccept(exists -> findTable(userId, tableId, body.getInt("page"), exists)
-        .thenAccept(futureResponse::complete));
-    return futureResponse;
-  }
-
-  private CompletableFuture<Map<String, Object>> findTable(
-    UUID userId, String tableId, int page, boolean exists
-  ) {
-    if (!exists) {
-      return CompletableFuture.completedFuture(Maps.newHashMap());
-    }
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    tableDatabaseTable.findTable(tableId).thenAccept(table ->
-      userTargetDatabaseTable.findTargetSecured(userId).thenAccept(target ->
-        findTable(table, target, page).thenAccept(futureResponse::complete)));
-    return futureResponse;
-  }
-
-  private CompletableFuture<Map<String, Object>> findTable(
-    TableEntry entry, UUID target, int page
-  ) {
-    if (!entry.owner().equals(target)) {
-      return CompletableFuture.completedFuture(Maps.newHashMap());
-    }
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    tableFactory.create(entry).thenAccept(table ->
-      detailedTableInformation(entry, table, page)
-        .thenAccept(futureResponse::complete));
+    findUser(request).thenAccept(user -> performTableOperation(user,
+      body.getString("table"), entry -> tableFactory.create(entry)
+        .thenAccept(table -> detailedTableInformation(entry, table,
+          body.getInt("page")).thenAccept(futureResponse::complete)),
+      () -> futureResponse.complete(Maps.newHashMap())));
     return futureResponse;
   }
 
