@@ -97,7 +97,7 @@ public final class TableDatabaseTable extends DatabaseTable {
   }
 
   public CompletableFuture<List<TableEntry>> findTablesOfOwner(UUID ownerId) {
-    return selectRows("owner=" + ownerId  + " ALLOW FILTERING").thenApply(rows ->
+    return selectRows("owner=" + ownerId).thenApply(rows ->
       rows.stream().map(TableEntry::of).collect(Collectors.toList()));
   }
 

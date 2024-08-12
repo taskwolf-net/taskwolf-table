@@ -51,6 +51,7 @@ public final class TableRemoveEntryTrigger implements Trigger {
   @Override
   public void initialize() {
     contentDatabaseTable.createIfNotExists();
+    contentDatabaseTable.createIndexIfNotExists("tableId");
   }
 
   @Override

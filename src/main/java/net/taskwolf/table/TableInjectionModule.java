@@ -49,6 +49,7 @@ public class TableInjectionModule extends AbstractModule {
   ) {
     var tableDatabaseTable = TableDatabaseTable.create(connection, keyspace);
     tableDatabaseTable.createIfNotExists();
+    tableDatabaseTable.createIndexIfNotExists("owner");
     return tableDatabaseTable;
   }
 }

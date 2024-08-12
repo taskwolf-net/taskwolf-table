@@ -144,7 +144,7 @@ public final class TableModificationController extends TableController {
       cells.add(TableCell.create(entry.getKey(), entry.getValue()));
     }
     coreModule.triggerWorkflows("table", "database-entry-insert-trigger",
-      "table='" + tableEntry.id() + "'", tableInsertInformation(table, contentId));
+      "tableId='" + tableEntry.id() + "'", tableInsertInformation(table, contentId));
     return table.insertContent(TableRow.create(cells))
       .thenAccept(success -> response.setStatus(success ?
         HttpServletResponse.SC_OK : HttpServletResponse.SC_BAD_REQUEST));
@@ -201,7 +201,7 @@ public final class TableModificationController extends TableController {
   private void removeTableEntry(TableEntry tableEntry, Table table, UUID rowId) {
     table.removeContent(rowId);
     coreModule.triggerWorkflows("table", "database-entry-remove-trigger",
-      "table='" + tableEntry.id() + "'", tableRemoveInformation(table, rowId));
+      "tableId='" + tableEntry.id() + "'", tableRemoveInformation(table, rowId));
   }
 
   private Map<String, Object> tableRemoveInformation(Table table, UUID entryId) {
