@@ -202,4 +202,9 @@ public final class TableDatabaseTable extends DatabaseTable {
   public CompletableFuture<Long> findTableCount(UUID ownerId) {
     return count("owner=" + ownerId);
   }
+
+  public CompletableFuture<List<TableEntry>> findAllTablesOfOwner(UUID ownerId) {
+    return selectRows("owner=" + ownerId).thenApply(rows ->
+      rows.stream().map(row -> TableEntry.of(row, this)).toList());
+  }
 }

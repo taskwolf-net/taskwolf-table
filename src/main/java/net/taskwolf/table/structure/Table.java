@@ -90,7 +90,7 @@ public final class Table extends DatabaseTable {
 
   private CompletableFuture<Boolean> checkDatabaseSizeLimit(long size) {
     return bundleDatabaseTable.findBundle(entry.owner()).thenCompose(bundle ->
-      tableDatabaseTable.findTablesOfOwner(entry.owner()).thenApply(tables ->
+      tableDatabaseTable.findAllTablesOfOwner(entry.owner()).thenApply(tables ->
           tables.stream().filter(table -> !table.id().equals(entry.id()))
             .mapToLong(TableEntry::size).sum() + size)
         .thenApply(dataSize -> bundle.databaseDataLimit() > 0 &&
