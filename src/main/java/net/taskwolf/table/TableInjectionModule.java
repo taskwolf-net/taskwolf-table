@@ -47,9 +47,6 @@ public class TableInjectionModule extends AbstractModule {
   TableDatabaseTable provideTableDatabaseTable(
     DatabaseConnection connection, DatabaseKeyspace keyspace
   ) {
-    var tableDatabaseTable = TableDatabaseTable.create(connection, keyspace);
-    tableDatabaseTable.createIfNotExists();
-    tableDatabaseTable.createIndexIfNotExists("owner");
-    return tableDatabaseTable;
+    return TableDatabaseTable.create(connection, keyspace);
   }
 }

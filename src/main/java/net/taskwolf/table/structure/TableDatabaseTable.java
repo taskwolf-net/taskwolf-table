@@ -16,17 +16,31 @@ public final class TableDatabaseTable extends DatabaseTable {
     DatabaseConnection connection, DatabaseKeyspace keyspace
   ) {
     var columns = Lists.<DatabaseColumn>newArrayList();
+    columns.add(DatabaseColumn.create("owner", DatabaseDataType.UUID,
+      DatabaseColumn.Type.PARTITION_KEY));
     columns.add(DatabaseColumn.create("id", DatabaseDataType.TEXT,
-      DatabaseColumn.Type.PRIMARY_KEY));
-    columns.add(DatabaseColumn.create("owner", DatabaseDataType.UUID));
+      DatabaseColumn.Type.CLUSTERING_KEY));
     columns.add(DatabaseColumn.create("creator", DatabaseDataType.UUID));
     columns.add(DatabaseColumn.create("name", DatabaseDataType.TEXT));
     columns.add(DatabaseColumn.create("created", DatabaseDataType.BIGINT));
     columns.add(DatabaseColumn.create("size", DatabaseDataType.BIGINT));
-    return new TableDatabaseTable(connection, keyspace, TABLE_NAME, columns);
+    var table = new TableDatabaseTable(connection, keyspace, TABLE_NAME, columns);
+    table.createIfNotExists();
+    table.createIndexIfNotExists("id");
+    table.createIndexIfNotExists("name",
+      "'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = " +
+        "{'mode': 'CONTAINS', 'analyzer_class': " +
+        "'org.apache.cassandra.index.sasi.analyzer.NonTokenizingAnalyzer', " +
+        "'case_sensitive': 'false'}");
+    table.initializeViews();
+    return table;
   }
 
   private final Random random = new Random();
+  private DatabaseTable nameView;
+  private DatabaseTable creatorView;
+  private DatabaseTable createdView;
+  private DatabaseTable sizeView;
 
   private TableDatabaseTable(
     DatabaseConnection connection, DatabaseKeyspace keyspace, String name,
@@ -35,15 +49,22 @@ public final class TableDatabaseTable extends DatabaseTable {
     super(connection, keyspace, name, columns);
   }
 
+  private void initializeViews() {
+    nameView = createMaterializedViewIfNotExists("name_view", "name");
+    creatorView = createMaterializedViewIfNotExists("creator_view", "creator");
+    createdView = createMaterializedViewIfNotExists("created_view", "created");
+    sizeView = createMaterializedViewIfNotExists("size_view", "size");
+  }
+
   public void insertTable(TableEntry table) {
-    insertTable(table.id(), table.owner(), table.creator(), table.name(),
+    insertTable(table.owner(), table.id(), table.creator(), table.name(),
       table.created(), table.size());
   }
 
   public void insertTable(
-    String id, UUID owner, UUID creator, String name, long created, long size
+    UUID owner, String id, UUID creator, String name, long created, long size
   ) {
-    insert(DatabaseRow.of(id, owner, creator, name, created, size));
+    insert(DatabaseRow.of(owner, id, creator, name, created, size));
   }
 
   public void changeTableName(String id, String name) {
@@ -69,6 +90,11 @@ public final class TableDatabaseTable extends DatabaseTable {
       entry.owner(), entry.creator(), entry.name(), entry.created(), entry.size()));
   }
 
+  public void deleteTable(String tableId) {
+    findTable(tableId).thenAccept(table ->
+      delete("owner=" + table.owner() + " AND id='" + table.id() + "'"));
+  }
+
   public CompletableFuture<String> generateAvailableTableId() {
     var futureResponse = new CompletableFuture<String>();
     var id = createTableId();
@@ -88,20 +114,92 @@ public final class TableDatabaseTable extends DatabaseTable {
     return value.toString();
   }
 
-  public CompletableFuture<Boolean> tableExists(String id) {
-    return exists(DatabaseCell.create(id));
+  public CompletableFuture<Boolean> tableExists(String tableId) {
+    return exists("id='" + tableId + "'");
   }
 
-  public void deleteTable(String id) {
-    delete(DatabaseCell.create(id));
+  public CompletableFuture<TableEntry> findTable(String tableId) {
+    return selectRow("id='" + tableId + "'").thenApply(row ->
+      TableEntry.of(row, this));
   }
 
-  public CompletableFuture<List<TableEntry>> findTablesOfOwner(UUID ownerId) {
-    return selectRows("owner=" + ownerId).thenApply(rows ->
-      rows.stream().map(TableEntry::of).collect(Collectors.toList()));
+  private static final int PAGE_SIZE = 5;
+
+  public CompletableFuture<DatabasePage<TableEntry>> findTablesOfOwner(
+    UUID ownerId, int targetPage, String sortingColumn, DatabaseOrder sortingOrder,
+    String search, UUID creatorId, long startTime, long endTime,
+    long minimumSize, long maximumSize
+  ) {
+    if (!search.isEmpty()) {
+      return selectRows("owner=" + ownerId + " AND name LIKE '%" + search +
+        "%' LIMIT " + PAGE_SIZE)
+        .thenApply(rows -> createTablePage(DatabasePage.create(rows, "", 1), this));
+    }
+    var view = findTargetView(sortingColumn);
+    return view.selectPage(DatabaseCell.create(ownerId),
+        createTableConditions(creatorId, startTime, endTime, minimumSize,
+          maximumSize), sortingOrder, PAGE_SIZE, targetPage)
+      .thenApply(page -> createTablePage(page, view));
   }
 
-  public CompletableFuture<TableEntry> findTable(String id) {
-    return selectRow(DatabaseCell.create(id)).thenApply(TableEntry::of);
+  public CompletableFuture<DatabasePage<TableEntry>> findTablesOfOwner(
+    UUID ownerId, String pageState, DatabaseDirection startingPoint,
+    DatabaseDirection direction, String sortingColumn, DatabaseOrder sortingOrder,
+    UUID creatorId, long startTime, long endTime, long minimumSize,
+    long maximumSize
+  ) {
+    var view = findTargetView(sortingColumn);
+    return view.shiftPage(DatabaseCell.create(ownerId),
+        createTableConditions(creatorId, startTime, endTime, minimumSize,
+          maximumSize), sortingOrder, PAGE_SIZE, pageState, startingPoint, direction)
+      .thenApply(page -> createTablePage(page, view));
+  }
+
+  private DatabaseTable findTargetView(String sortingColumn) {
+    if (sortingColumn.equals("name")) {
+      return nameView;
+    } else if (sortingColumn.equals("creator")) {
+      return creatorView;
+    } else if (sortingColumn.equals("created")) {
+      return createdView;
+    } else if (sortingColumn.equals("size")) {
+      return sizeView;
+    }
+    return null;
+  }
+
+  private List<String> createTableConditions(
+    UUID creatorId, long startTime, long endTime, long minimumSize,
+    long maximumSize
+  ) {
+    var conditions = Lists.<String>newArrayList();
+    if (creatorId != null) {
+      conditions.add("creator = " + creatorId);
+    }
+    if (startTime > 0) {
+      conditions.add("created >= " + startTime);
+    }
+    if (endTime > 0) {
+      conditions.add("created <= " + endTime);
+    }
+    if (minimumSize > 0) {
+      conditions.add("size >= " + minimumSize);
+    }
+    if (maximumSize > 0) {
+      conditions.add("size <= " + maximumSize);
+    }
+    return conditions;
+  }
+
+  private DatabasePage<TableEntry> createTablePage(
+    DatabasePage<DatabaseRow> page, DatabaseTable table
+  ) {
+    return DatabasePage.create(
+      page.content().stream().map(row -> TableEntry.of(row, table)).toList(),
+      page.pageState(), page.pageNumber());
+  }
+
+  public CompletableFuture<Long> findTableCount(UUID ownerId) {
+    return count("owner=" + ownerId);
   }
 }

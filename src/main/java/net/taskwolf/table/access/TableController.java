@@ -96,17 +96,16 @@ public class TableController extends TaskwolfRestController {
         uuid.equals(tableOwnerId)).orElse(false));
   }
 
-  protected CompletableFuture<List<TableEntry>> findViewableTables(UUID userId) {
+  protected CompletableFuture<UUID> findTableTarget(UUID userId) {
     return userTargetDatabaseTable.findTargetSecured(userId)
-      .thenCompose(target -> findViewableTables(userId, target));
+      .thenCompose(target -> findTableTarget(userId, target));
   }
 
-  protected CompletableFuture<List<TableEntry>> findViewableTables(
+  private CompletableFuture<UUID> findTableTarget(
     UUID userId, UUID target
   ) {
-    return userId.equals(target) ?
-      tableDatabaseTable.findTablesOfOwner(target) :
-      teamTargetDatabaseTable.findTargetSecured(userId).thenCompose(team ->
-        tableDatabaseTable.findTablesOfOwner(team.orElse(target)));
+    return userId.equals(target) ? CompletableFuture.completedFuture(target) :
+      teamTargetDatabaseTable.findTargetSecured(userId)
+        .thenApply(team -> team.orElse(target));
   }
 }

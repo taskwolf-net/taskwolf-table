@@ -6,6 +6,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import net.taskwolf.core.access.TaskwolfRequestBody;
 import net.taskwolf.core.database.DatabaseColumn;
+import net.taskwolf.core.database.DatabaseDirection;
+import net.taskwolf.core.database.DatabaseOrder;
+import net.taskwolf.core.database.DatabasePage;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
 import net.taskwolf.core.user.UserDatabaseTable;
@@ -37,23 +40,81 @@ public final class TableInformationController extends TableController {
     this.tableFactory = tableFactory;
   }
 
-  @RequestMapping(path = "/tables/find/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> findTables(
-    HttpServletRequest request
+  @RequestMapping(path = "/tables/page/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> findTablePage(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    return findUser(request).thenCompose(user -> findViewableTables(user.id())
-      .thenCompose(this::findTables));
+    var body = TaskwolfRequestBody.of(payload, response);
+    var targetPage = body.getInt("targetPage");
+    var sortingColumn = body.getString("sorting");
+    var sortingOrder = DatabaseOrder.valueOf(body.getString("order"));
+    var search = body.getString("search");
+    var creatorId = body.has("creator") ? body.getUUID("creator") : null;
+    var startTime = body.has("startTime") ? body.getLong("startTime") : -1;
+    var endTime = body.has("endTime") ? body.getLong("endTime") : -1;
+    var minimumSize = body.has("minimumSize") ? body.getLong("minimumSize") : -1;
+    var maximumSize = body.has("maximumSize") ? body.getLong("maximumSize") : -1;
+    return findTableTarget(findUserId(request)).thenCompose(target ->
+      tableDatabaseTable().findTablesOfOwner(target, targetPage,
+          sortingColumn, sortingOrder, search, creatorId, startTime, endTime,
+          minimumSize, maximumSize)
+        .thenCompose(this::collectTableInformation));
   }
 
-  private CompletableFuture<Map<String, Object>> findTables(
-    List<TableEntry> entries
+  @RequestMapping(path = "/tables/page/shift/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> shiftTablePage(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var pageState = body.getString("pageState");
+    var startingPoint = DatabaseDirection.valueOf(body.getString("startingPoint"));
+    var direction = DatabaseDirection.valueOf(body.getString("direction"));
+    var sortingColumn = body.getString("sorting");
+    var sortingOrder = DatabaseOrder.valueOf(body.getString("order"));
+    var creatorId = body.has("creator") ? body.getUUID("creator") : null;
+    var startTime = body.has("startTime") ? body.getLong("startTime") : -1;
+    var endTime = body.has("endTime") ? body.getLong("endTime") : -1;
+    var minimumSize = body.has("minimumSize") ? body.getLong("minimumSize") : -1;
+    var maximumSize = body.has("maximumSize") ? body.getLong("maximumSize") : -1;
+    return findTableTarget(findUserId(request)).thenCompose(target ->
+      tableDatabaseTable().findTablesOfOwner(target, pageState,
+          startingPoint, direction, sortingColumn, sortingOrder, creatorId,
+          startTime, endTime, minimumSize, maximumSize)
+        .thenCompose(this::collectTableInformation));
+  }
+
+  private CompletableFuture<Map<String, Object>> collectTableInformation(
+    DatabasePage<TableEntry> page
+  ) {
+    if (page.content().isEmpty()) {
+      return CompletableFuture.completedFuture(Map.of("tables",
+        Lists.newArrayList(), "page", page.pageState(), "pageNumber", 0));
+    }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(entries, entry -> tableFactory.create(entry)
+    AsyncIterator.execute(page.content(), entry -> tableFactory.create(entry)
         .thenCompose(table -> table.count().thenApply(rows ->
           superficialTableInformation(entry, rows))))
-      .thenAccept(tables -> futureResponse.complete(Map.of("tables", tables)));
+      .thenApply(information -> reconstructTableOrder(page, information))
+      .thenAccept(information -> futureResponse.complete(Map.of("tables",
+        information, "page", page.pageState(), "pageNumber", page.pageNumber())));
     return futureResponse;
+  }
+
+  private List<Map<String, Object>> reconstructTableOrder(
+    DatabasePage<TableEntry> page, List<Map<String, Object>> information
+  ) {
+    var result = Lists.<Map<String, Object>>newArrayList();
+    for (var table : page.content()) {
+      for (var entry : information) {
+        if (table.id().toString().equals(entry.get("id").toString())) {
+          result.add(entry);
+          break;
+        }
+      }
+    }
+    return result;
   }
 
   @RequestMapping(path = "/table/find/", method = RequestMethod.POST)

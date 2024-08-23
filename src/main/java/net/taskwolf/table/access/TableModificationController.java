@@ -84,8 +84,8 @@ public final class TableModificationController extends TableController {
   ) {
     return findOwnersOfTarget(user, target)
       .thenCompose(owners -> AsyncIterator.execute(owners, owner ->
-          tableDatabaseTable().findTablesOfOwner(owner).thenApply(List::size))
-        .thenApply(sizes -> sizes.stream().mapToInt(Integer::intValue).sum())
+          tableDatabaseTable().findTableCount(owner))
+        .thenApply(sizes -> sizes.stream().mapToLong(Long::longValue).sum())
         .thenCompose(number -> bundleDatabaseTable.findBundle(target)
           .thenApply(bundle -> bundle.databaseNumberLimit() > 0 &&
             number >= bundle.databaseNumberLimit())));
@@ -107,7 +107,7 @@ public final class TableModificationController extends TableController {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return;
     }
-    var entry = TableEntry.create(tableId, owner, creator, name,
+    var entry = TableEntry.create(owner, tableId, creator, name,
       System.currentTimeMillis(), 0);
     tableDatabaseTable().insertTable(entry);
     var defaultColumns = Lists.newArrayList(DatabaseColumn.create("id",
