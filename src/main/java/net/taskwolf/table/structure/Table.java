@@ -123,14 +123,17 @@ public final class Table extends DatabaseTable {
 
   private static final int PAGE_SIZE = 5;
 
-  public CompletableFuture<DatabasePage<TableRow>> findContentPage(int pageNumber) {
-    return selectPage(PAGE_SIZE, pageNumber).thenApply(this::createContentPage);
+  public CompletableFuture<DatabasePage<TableRow>> findContentPage(int targetPage) {
+    return selectPage(DatabaseCell.create(""), Lists.newArrayList(),
+      DatabaseOrder.ASCENDING, PAGE_SIZE, targetPage)
+      .thenApply(this::createContentPage);
   }
 
   public CompletableFuture<DatabasePage<TableRow>> shiftContentPage(
     String pageState, DatabaseDirection startingPoint, DatabaseDirection direction
   ) {
-    return shiftPage(PAGE_SIZE, pageState, startingPoint, direction)
+    return shiftPage(DatabaseCell.create(""), Lists.newArrayList(),
+      DatabaseOrder.ASCENDING, PAGE_SIZE, pageState, startingPoint, direction)
       .thenApply(this::createContentPage);
   }
 

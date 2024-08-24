@@ -138,8 +138,8 @@ public final class TableInformationController extends TableController {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     findUser(request).thenAccept(user -> performTableOperation(user,
       body.getString("table"), entry -> tableFactory.create(entry)
-        .thenAccept(table -> detailedTableInformation(entry, table,
-          body.getInt("page")).thenAccept(futureResponse::complete)),
+        .thenAccept(table -> detailedTableInformation(entry, table)
+          .thenAccept(futureResponse::complete)),
       () -> futureResponse.complete(Maps.newHashMap())));
     return futureResponse;
   }
@@ -166,20 +166,17 @@ public final class TableInformationController extends TableController {
   }
 
   private CompletableFuture<Map<String, Object>> detailedTableInformation(
-    TableEntry entry, Table table, int page
+    TableEntry entry, Table table
   ) {
-    return table.findContent(TABLE_PAGE_SIZE, page)
-      .thenCompose(rows -> userDatabaseTable().findUserIfExists(entry.creator())
-        .thenApply(creator -> assemblyDetailedTableInformation(entry, creator,
-          table, rows)));
+    return userDatabaseTable().findUserIfExists(entry.creator())
+      .thenApply(creator -> assemblyDetailedTableInformation(entry, creator, table));
   }
 
   private Map<String, Object> assemblyDetailedTableInformation(
-    TableEntry entry, User creator, Table table, List<TableRow> rows
+    TableEntry entry, User creator, Table table
   ) {
     var information = superficialTableInformation(entry, creator);
     information.put("columns", assemblyTableColumnsInformation(table.columns()));
-    information.put("rows", assemblyTableRowsInformation(rows));
     return information;
   }
 
@@ -188,7 +185,9 @@ public final class TableInformationController extends TableController {
   ) {
     var result = Lists.<Map<String, Object>>newArrayList();
     for (var column : columns) {
-      if (column.name().equalsIgnoreCase("id")) {
+      if (column.name().equalsIgnoreCase("id") || column.name().equalsIgnoreCase("created") ||
+        column.name().equalsIgnoreCase("placeholder")
+      ) {
         continue;
       }
       var columnInformation = Maps.<String, Object>newHashMap();
@@ -197,6 +196,54 @@ public final class TableInformationController extends TableController {
       result.add(columnInformation);
     }
     return result;
+  }
+
+  @RequestMapping(path = "/table/content/page/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> findTableContentPage(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var targetPage = body.getInt("targetPage");
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    findUser(request).thenAccept(user -> performTableOperation(user,
+      body.getString("table"), entry -> tableFactory.create(entry)
+        .thenCompose(table -> table.findContentPage(targetPage))
+        .thenApply(this::collectContentInformation)
+        .thenAccept(futureResponse::complete),
+      () -> futureResponse.complete(Maps.newHashMap())));
+    return futureResponse;
+  }
+
+  @RequestMapping(path = "/table/content/page/shift/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> shiftTableContentPage(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = TaskwolfRequestBody.of(payload, response);
+    var pageState = body.getString("pageState");
+    var startingPoint = DatabaseDirection.valueOf(body.getString("startingPoint"));
+    var direction = DatabaseDirection.valueOf(body.getString("direction"));
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    findUser(request).thenAccept(user -> performTableOperation(user,
+      body.getString("table"), entry -> tableFactory.create(entry)
+        .thenCompose(table -> table.shiftContentPage(pageState,
+          startingPoint, direction))
+        .thenApply(this::collectContentInformation)
+        .thenAccept(futureResponse::complete),
+      () -> futureResponse.complete(Maps.newHashMap())));
+    return futureResponse;
+  }
+
+  private Map<String, Object> collectContentInformation(
+    DatabasePage<TableRow> page
+  ) {
+    if (page.content().isEmpty()) {
+      return Map.of("content", Lists.newArrayList(), "page", page.pageState(),
+        "pageNumber", 0);
+    }
+    return Map.of("content", assemblyTableRowsInformation(page.content()),
+      "page", page.pageState(), "pageNumber", page.pageNumber());
   }
 
   private List<Map<String, Object>> assemblyTableRowsInformation(List<TableRow> rows) {

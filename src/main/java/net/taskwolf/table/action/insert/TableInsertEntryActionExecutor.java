@@ -58,7 +58,10 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
   private List<TableCell> createCells(Table table, UUID contentId) throws Exception {
     var tableColumns = table.columns().stream().map(DatabaseColumn::name).toList();
     var entries = entryContent.split(",");
-    var cells = Lists.newArrayList(TableCell.create("id", contentId));
+    var cells = Lists.<TableCell>newArrayList();
+    cells.add(TableCell.create("placeholder", ""));
+    cells.add(TableCell.create("id", contentId));
+    cells.add(TableCell.create("created", System.currentTimeMillis()));
     for (var entry : entries) {
       cells.add(createCell(entry, cells, tableColumns));
     }

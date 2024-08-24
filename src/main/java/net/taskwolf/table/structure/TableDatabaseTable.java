@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 public final class TableDatabaseTable extends DatabaseTable {
   private static final String TABLE_NAME = "user_table";
@@ -86,8 +85,9 @@ public final class TableDatabaseTable extends DatabaseTable {
   }
 
   private void updateTable(TableEntry entry) {
-    update(DatabaseCell.create(entry.id()), DatabaseRow.of(entry.id(),
-      entry.owner(), entry.creator(), entry.name(), entry.created(), entry.size()));
+    update("owner=" + entry.owner() + " AND id='" + entry.id() + "'",
+      DatabaseRow.of(entry.owner(), entry.id(), entry.creator(), entry.name(),
+        entry.created(), entry.size()));
   }
 
   public void deleteTable(String tableId) {
