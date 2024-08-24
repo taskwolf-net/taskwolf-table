@@ -20,7 +20,7 @@ public class TableComponentSelect implements InputComponentSelect {
   public CompletableFuture<List<String>> compile(
     User user, UUID target, Map<String, String> previousInputs
   ) {
-    return tableDatabaseTable.findTablesOfOwner(target)
+    return tableDatabaseTable.findAllTablesOfOwner(target)
       .thenApply(tables -> tables.stream().map(table ->
         new JSONObject(Map.of("identifier", table.id(), "name",
           table.name())).toString()).collect(Collectors.toList()));

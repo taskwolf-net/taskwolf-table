@@ -121,11 +121,25 @@ public final class Table extends DatabaseTable {
     return exists(DatabaseCell.create(id));
   }
 
-  public CompletableFuture<List<TableRow>> findContent(
-    int pageSize, int pageNumber
+  private static final int PAGE_SIZE = 5;
+
+  public CompletableFuture<DatabasePage<TableRow>> findContentPage(int pageNumber) {
+    return selectPage(PAGE_SIZE, pageNumber).thenApply(this::createContentPage);
+  }
+
+  public CompletableFuture<DatabasePage<TableRow>> shiftContentPage(
+    String pageState, DatabaseDirection startingPoint, DatabaseDirection direction
   ) {
-    return selectPagesRows(pageSize, pageNumber).thenApply(rows ->
-      rows.stream().map(row -> TableRow.of(row, columns())).toList());
+    return shiftPage(PAGE_SIZE, pageState, startingPoint, direction)
+      .thenApply(this::createContentPage);
+  }
+
+  private DatabasePage<TableRow> createContentPage(
+    DatabasePage<DatabaseRow> page
+  ) {
+    return DatabasePage.create(
+      page.content().stream().map(row -> TableRow.of(row, columns())).toList(),
+      page.pageState(), page.pageNumber());
   }
 
   public void removeContent(UUID id) {

@@ -11,6 +11,7 @@ import net.taskwolf.core.database.DatabaseOrder;
 import net.taskwolf.core.database.DatabasePage;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.team.TeamTargetDatabaseTable;
+import net.taskwolf.core.user.User;
 import net.taskwolf.core.user.UserDatabaseTable;
 import net.taskwolf.core.user.UserTargetDatabaseTable;
 import net.taskwolf.table.structure.*;
@@ -20,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -27,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class TableInformationController extends TableController {
   private final TableFactory tableFactory;
+  private final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd.MM.yyyy");
 
   private TableInformationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -93,9 +97,7 @@ public final class TableInformationController extends TableController {
         Lists.newArrayList(), "page", page.pageState(), "pageNumber", 0));
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    AsyncIterator.execute(page.content(), entry -> tableFactory.create(entry)
-        .thenCompose(table -> table.count().thenApply(rows ->
-          superficialTableInformation(entry, rows))))
+    AsyncIterator.execute(page.content(), this::gatherTableInformation)
       .thenApply(information -> reconstructTableOrder(page, information))
       .thenAccept(information -> futureResponse.complete(Map.of("tables",
         information, "page", page.pageState(), "pageNumber", page.pageNumber())));
@@ -117,6 +119,16 @@ public final class TableInformationController extends TableController {
     return result;
   }
 
+  private CompletableFuture<Map<String, Object>> gatherTableInformation(
+    TableEntry table
+  ) {
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    userDatabaseTable().findUserIfExists(table.creator())
+      .thenAccept(creator -> futureResponse.complete(
+        superficialTableInformation(table, creator)));
+    return futureResponse;
+  }
+
   @RequestMapping(path = "/table/find/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findTable(
     HttpServletRequest request, @RequestBody String payload,
@@ -133,12 +145,13 @@ public final class TableInformationController extends TableController {
   }
 
   private Map<String, Object> superficialTableInformation(
-    TableEntry entry, long rowNumber
+    TableEntry entry, User creator
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", entry.id());
     information.put("name", entry.name());
-    information.put("entries", rowNumber);
+    information.put("creator", creator.name());
+    information.put("created", timeMillisecondsToDate(entry.created()));
     information.put("size", formatByteSize(entry.size()));
     return information;
   }
@@ -152,20 +165,19 @@ public final class TableInformationController extends TableController {
       " KMGTPE".charAt(z));
   }
 
-  private static final int TABLE_PAGE_SIZE = 5;
-
   private CompletableFuture<Map<String, Object>> detailedTableInformation(
     TableEntry entry, Table table, int page
   ) {
-    return table.count().thenCompose(rowNumber ->
-      table.findContent(TABLE_PAGE_SIZE, page).thenApply(rows ->
-        assemblyDetailedTableInformation(entry, table, rowNumber, rows)));
+    return table.findContent(TABLE_PAGE_SIZE, page)
+      .thenCompose(rows -> userDatabaseTable().findUserIfExists(entry.creator())
+        .thenApply(creator -> assemblyDetailedTableInformation(entry, creator,
+          table, rows)));
   }
 
   private Map<String, Object> assemblyDetailedTableInformation(
-    TableEntry entry, Table table, long totalRowNumber, List<TableRow> rows
+    TableEntry entry, User creator, Table table, List<TableRow> rows
   ) {
-    var information = superficialTableInformation(entry, totalRowNumber);
+    var information = superficialTableInformation(entry, creator);
     information.put("columns", assemblyTableColumnsInformation(table.columns()));
     information.put("rows", assemblyTableRowsInformation(rows));
     return information;
@@ -200,6 +212,12 @@ public final class TableInformationController extends TableController {
       result.add(Map.of("cells", columnInformation));
     }
     return result;
+  }
+
+  private String timeMillisecondsToDate(long milliseconds) {
+    Calendar calendar = Calendar.getInstance();
+    calendar.setTimeInMillis(milliseconds);
+    return simpleDateFormat.format(calendar.getTime());
   }
 }
 
