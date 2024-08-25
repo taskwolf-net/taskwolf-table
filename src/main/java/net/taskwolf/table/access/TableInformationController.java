@@ -185,9 +185,7 @@ public final class TableInformationController extends TableController {
   ) {
     var result = Lists.<Map<String, Object>>newArrayList();
     for (var column : columns) {
-      if (column.name().equalsIgnoreCase("id") || column.name().equalsIgnoreCase("created") ||
-        column.name().equalsIgnoreCase("placeholder")
-      ) {
+      if (column.name().equalsIgnoreCase("id") || column.name().equalsIgnoreCase("owner")) {
         continue;
       }
       var columnInformation = Maps.<String, Object>newHashMap();

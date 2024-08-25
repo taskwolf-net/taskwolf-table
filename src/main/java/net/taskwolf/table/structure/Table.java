@@ -8,6 +8,7 @@ import net.taskwolf.core.database.*;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 public final class Table extends DatabaseTable {
   public static CompletableFuture<Table> create(
@@ -70,7 +71,7 @@ public final class Table extends DatabaseTable {
   }
 
   public CompletableFuture<Boolean> updateContent(UUID id, TableRow row) {
-    return selectRow(DatabaseCell.create(id))
+    return selectRow("owner=" + entry.owner() + " AND id=" + id)
       .thenApply(previousRow -> TableRow.of(previousRow, columns()))
       .thenApply(previousRow -> entry.size() - previousRow.size() + row.size())
       .thenCompose(size -> checkDatabaseSizeLimit(size)
@@ -84,7 +85,8 @@ public final class Table extends DatabaseTable {
       return false;
     }
     tableDatabaseTable.updateTableSize(entry, size);
-    update(DatabaseCell.create(id), DatabaseRow.of(createRowValues(row)));
+    update("owner=" + entry.owner() + " AND id=" + id,
+      DatabaseRow.of(createRowValues(row)));
     return true;
   }
 
@@ -118,13 +120,13 @@ public final class Table extends DatabaseTable {
   }
 
   public CompletableFuture<Boolean> contentExists(UUID id) {
-    return exists(DatabaseCell.create(id));
+    return exists("owner=" + entry.owner() + " AND id=" + id);
   }
 
   private static final int PAGE_SIZE = 5;
 
   public CompletableFuture<DatabasePage<TableRow>> findContentPage(int targetPage) {
-    return selectPage(DatabaseCell.create(""), Lists.newArrayList(),
+    return selectPage(DatabaseCell.create(entry.owner()), Lists.newArrayList(),
       DatabaseOrder.ASCENDING, PAGE_SIZE, targetPage)
       .thenApply(this::createContentPage);
   }
@@ -132,7 +134,7 @@ public final class Table extends DatabaseTable {
   public CompletableFuture<DatabasePage<TableRow>> shiftContentPage(
     String pageState, DatabaseDirection startingPoint, DatabaseDirection direction
   ) {
-    return shiftPage(DatabaseCell.create(""), Lists.newArrayList(),
+    return shiftPage(DatabaseCell.create(entry.owner()), Lists.newArrayList(),
       DatabaseOrder.ASCENDING, PAGE_SIZE, pageState, startingPoint, direction)
       .thenApply(this::createContentPage);
   }
@@ -146,11 +148,11 @@ public final class Table extends DatabaseTable {
   }
 
   public void removeContent(UUID id) {
-    selectRow(DatabaseCell.create(id))
+    selectRow("owner=" + entry.owner() + " AND id=" + id)
       .thenApply(row -> TableRow.of(row, columns()))
       .thenAccept(row -> tableDatabaseTable.updateTableSize(entry,
         entry.size() - row.size()))
-      .thenAccept(value -> delete(DatabaseCell.create(id)));
+      .thenAccept(value -> delete("owner=" + entry.owner() + " AND id=" + id));
   }
 
   private CompletableFuture<List<DatabaseColumn>> findTableColumns() {
@@ -168,24 +170,32 @@ public final class Table extends DatabaseTable {
   }
 
   private List<DatabaseColumn> createDatabaseColumns(Iterable<Row> rows) {
-    DatabaseColumn primaryKeyColumn = null;
+    DatabaseColumn partitionKeyColumn = null;
+    DatabaseColumn clusteringKeyColumn = null;
     var columns = Lists.<DatabaseColumn>newArrayList();
     for (var row : rows) {
       var column = createDatabaseColumnEntry(row);
-      if (column.type().isPrimaryKey()) {
-        primaryKeyColumn = column;
+      if (column.type().isPartitionKey()) {
+        partitionKeyColumn = column;
+      } else if (column.type().isClusteringKey()) {
+        clusteringKeyColumn = column;
       } else {
         columns.add(column);
       }
     }
-    columns.add(0, primaryKeyColumn);
+    columns.add(0, clusteringKeyColumn);
+    columns.add(0, partitionKeyColumn);
     return columns;
   }
 
   private DatabaseColumn createDatabaseColumnEntry(Row row) {
     var columnName = row.getString("column_name");
-    var columnType = row.getString("kind").equals("partition_key") ?
-      DatabaseColumn.Type.PRIMARY_KEY : DatabaseColumn.Type.REGULAR;
+    var kind = row.getString("kind");
+    var columnType = switch (kind) {
+      case "partition_key" -> DatabaseColumn.Type.PARTITION_KEY;
+      case "clustering" -> DatabaseColumn.Type.CLUSTERING_KEY;
+      default -> DatabaseColumn.Type.REGULAR;
+    };
     var dataType = row.getString("type").toUpperCase();
     if (dataType.contains("LIST")) {
       return DatabaseListColumn.create(columnName, DatabaseDataType.valueOf(

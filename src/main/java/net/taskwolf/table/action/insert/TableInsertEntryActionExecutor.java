@@ -37,16 +37,16 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
     return tableDatabaseTable.findTable(tableIdentifier).thenCompose(tableEntry ->
       tableFactory.create(tableEntry).thenCompose(table ->
         table.generateAvailableContentId().thenCompose(contentId ->
-          execute(information, table, contentId))));
+          execute(information, tableEntry, table, contentId))));
   }
 
   private CompletableFuture<ActionResult> execute(
-    Map<String, Object> information, Table table, UUID contentId
+    Map<String, Object> information, TableEntry tableEntry, Table table, UUID contentId
   ) {
     var placeholderDissolve = PlaceholderDissolve.create(information);
     entryContent = placeholderDissolve.dissolve(entryContent);
     try {
-      var cells = createCells(table, contentId);
+      var cells = createCells(tableEntry, table, contentId);
       return table.insertContent(TableRow.create(cells)).thenApply(success ->
         success ? ActionResult.success(buildInformation(table, contentId)) :
           ActionResult.failure("table.action.entry.insert.failure.data.limit.reached"));
@@ -55,13 +55,14 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
     }
   }
 
-  private List<TableCell> createCells(Table table, UUID contentId) throws Exception {
+  private List<TableCell> createCells(
+    TableEntry tableEntry, Table table, UUID contentId
+  ) throws Exception {
     var tableColumns = table.columns().stream().map(DatabaseColumn::name).toList();
     var entries = entryContent.split(",");
     var cells = Lists.<TableCell>newArrayList();
-    cells.add(TableCell.create("placeholder", ""));
+    cells.add(TableCell.create("owner", tableEntry.owner()));
     cells.add(TableCell.create("id", contentId));
-    cells.add(TableCell.create("created", System.currentTimeMillis()));
     for (var entry : entries) {
       cells.add(createCell(entry, cells, tableColumns));
     }

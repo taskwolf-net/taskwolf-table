@@ -111,10 +111,8 @@ public final class TableModificationController extends TableController {
       System.currentTimeMillis(), 0);
     tableDatabaseTable().insertTable(entry);
     var defaultColumns = Lists.<DatabaseColumn>newArrayList();
-    defaultColumns.add(DatabaseColumn.create("placeholder", DatabaseDataType.TEXT,
+    defaultColumns.add(DatabaseColumn.create("owner", DatabaseDataType.UUID,
       DatabaseColumn.Type.PARTITION_KEY));
-    defaultColumns.add(DatabaseColumn.create("created", DatabaseDataType.BIGINT,
-      DatabaseColumn.Type.CLUSTERING_KEY));
     defaultColumns.add(DatabaseColumn.create("id", DatabaseDataType.UUID,
       DatabaseColumn.Type.CLUSTERING_KEY));
     defaultColumns.add(DatabaseColumn.create("data", DatabaseDataType.TEXT));
@@ -144,9 +142,8 @@ public final class TableModificationController extends TableController {
     Map<String, Object> rowContent, HttpServletResponse response
   ) {
     var cells = Lists.<TableCell>newArrayList();
-    cells.add(TableCell.create("placeholder", ""));
+    cells.add(TableCell.create("owner", tableEntry.owner()));
     cells.add(TableCell.create("id", contentId));
-    cells.add(TableCell.create("created", System.currentTimeMillis()));
     for (var entry : rowContent.entrySet()) {
       cells.add(TableCell.create(entry.getKey(), entry.getValue()));
     }
@@ -226,9 +223,7 @@ public final class TableModificationController extends TableController {
     var body = TaskwolfRequestBody.of(payload, response);
     var tableId = body.getString("table");
     var columnName = body.getString("columnName");
-    if (columnName.equalsIgnoreCase("id") || columnName.equalsIgnoreCase("created") ||
-      columnName.equalsIgnoreCase("placeholder")
-    ) {
+    if (columnName.equalsIgnoreCase("id") || columnName.equalsIgnoreCase("owner")) {
       return;
     }
     performTableOperation(findUserId(request), tableId, tableEntry ->
@@ -251,9 +246,7 @@ public final class TableModificationController extends TableController {
     var body = TaskwolfRequestBody.of(payload, response);
     var tableId = body.getString("table");
     var columnName = body.getString("columnName");
-    if (columnName.equalsIgnoreCase("id") || columnName.equalsIgnoreCase("created") ||
-      columnName.equalsIgnoreCase("placeholder")
-    ) {
+    if (columnName.equalsIgnoreCase("id") || columnName.equalsIgnoreCase("owner")) {
       return;
     }
     performTableOperation(findUserId(request), tableId, tableEntry ->
