@@ -10,6 +10,7 @@ import net.taskwolf.core.database.DatabaseConnection;
 import net.taskwolf.core.database.DatabaseKeyspace;
 import net.taskwolf.core.log.Log;
 import net.taskwolf.table.structure.TableDatabaseTable;
+import net.taskwolf.table.structure.TableSizeDatabaseTable;
 
 @RequiredArgsConstructor(staticName = "create")
 public class TableInjectionModule extends AbstractModule {
@@ -48,5 +49,16 @@ public class TableInjectionModule extends AbstractModule {
     DatabaseConnection connection, DatabaseKeyspace keyspace
   ) {
     return TableDatabaseTable.create(connection, keyspace);
+  }
+
+  @Provides
+  @Singleton
+  TableSizeDatabaseTable provideTableSizeDatabaseTable(
+    DatabaseConnection connection, DatabaseKeyspace keyspace
+  ) {
+    var tableSizeDatabaseTable = TableSizeDatabaseTable.create(connection,
+      keyspace);
+    tableSizeDatabaseTable.createIfNotExists();;
+    return tableSizeDatabaseTable;
   }
 }
