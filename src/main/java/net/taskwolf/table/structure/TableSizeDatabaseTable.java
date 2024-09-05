@@ -30,11 +30,7 @@ public final class TableSizeDatabaseTable extends DatabaseTable {
   public CompletableFuture<Void> updateSize(
     UUID targetId, long sizeAddition
   ) {
-    var query = new StringBuilder();
-    query.append("size");
-    query.append(sizeAddition >= 0 ? "+" : "-");
-    query.append(Math.abs(sizeAddition));
-    return update(targetId, DatabaseRow.of(targetId, query));
+    return updateCounter(targetId, DatabaseRow.of(targetId, sizeAddition));
   }
 
   public CompletableFuture<Void> deleteSize(UUID targetId) {
