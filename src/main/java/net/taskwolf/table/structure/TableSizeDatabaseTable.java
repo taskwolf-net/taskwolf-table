@@ -34,20 +34,19 @@ public final class TableSizeDatabaseTable extends DatabaseTable {
     query.append("size");
     query.append(sizeAddition >= 0 ? "+" : "-");
     query.append(Math.abs(sizeAddition));
-    return update(DatabaseCell.create(targetId), DatabaseRow.of(targetId,
-      query));
+    return update(targetId, DatabaseRow.of(targetId, query));
   }
 
   public CompletableFuture<Void> deleteSize(UUID targetId) {
-    return delete(DatabaseCell.create(targetId));
+    return delete(targetId);
   }
 
   public CompletableFuture<Boolean> sizeExists(UUID targetId) {
-    return exists(DatabaseCell.create(targetId));
+    return exists(targetId);
   }
 
   public CompletableFuture<Long> findSize(UUID targetId) {
-    return selectRowSecure(DatabaseCell.create(targetId))
+    return selectRowSecure(targetId)
       .thenApply(result -> result.map(row -> row.findCell(1).longValue()).orElse(0L));
   }
 }

@@ -10,6 +10,7 @@ import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.database.DatabaseColumn;
 import net.taskwolf.core.database.DatabaseDataType;
 import net.taskwolf.core.database.DatabaseTable;
+import net.taskwolf.core.database.condition.DatabaseCondition;
 import net.taskwolf.core.iterator.AsyncIterator;
 import net.taskwolf.core.organization.team.Team;
 import net.taskwolf.core.organization.team.TeamDatabaseTable;
@@ -148,7 +149,8 @@ public final class TableModificationController extends TableController {
       cells.add(TableCell.create(entry.getKey(), entry.getValue()));
     }
     coreModule.triggerWorkflows("table", "database-entry-insert-trigger",
-      "tableId='" + tableEntry.id() + "'", tableInsertInformation(table, contentId));
+      DatabaseCondition.of("tableId", tableEntry.id()),
+      tableInsertInformation(table, contentId));
     return table.insertContent(TableRow.create(cells))
       .thenAccept(success -> response.setStatus(success ?
         HttpServletResponse.SC_OK : HttpServletResponse.SC_BAD_REQUEST));
@@ -205,7 +207,8 @@ public final class TableModificationController extends TableController {
   private void removeTableEntry(TableEntry tableEntry, Table table, UUID rowId) {
     table.removeContent(rowId);
     coreModule.triggerWorkflows("table", "database-entry-remove-trigger",
-      "tableId='" + tableEntry.id() + "'", tableRemoveInformation(table, rowId));
+      DatabaseCondition.of("tableId", tableEntry.id()),
+      tableRemoveInformation(table, rowId));
   }
 
   private Map<String, Object> tableRemoveInformation(Table table, UUID entryId) {

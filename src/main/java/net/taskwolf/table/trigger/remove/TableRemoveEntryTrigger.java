@@ -3,6 +3,7 @@ package net.taskwolf.table.trigger.remove;
 import com.google.common.collect.Lists;
 import lombok.RequiredArgsConstructor;
 import net.taskwolf.core.database.*;
+import net.taskwolf.core.database.condition.DatabaseCondition;
 import net.taskwolf.core.trigger.Trigger;
 import net.taskwolf.core.trigger.TriggerContentDatabaseTable;
 import net.taskwolf.core.trigger.TriggerInformation;
@@ -67,7 +68,7 @@ public final class TableRemoveEntryTrigger implements Trigger {
   }
 
   @Override
-  public CompletableFuture<List<UUID>> findEntries(String condition) {
+  public CompletableFuture<List<UUID>> findEntries(DatabaseCondition condition) {
     return contentDatabaseTable.findContentByCondition(condition).thenApply(
       rows -> rows.stream().map(row -> row.findCell(0).uuidValue()).toList());
   }

@@ -4,6 +4,10 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import com.google.common.collect.Lists;
 import net.taskwolf.core.bundle.BundleDatabaseTable;
 import net.taskwolf.core.database.*;
+import net.taskwolf.core.database.condition.DatabaseCondition;
+import net.taskwolf.core.database.paging.DatabaseDirection;
+import net.taskwolf.core.database.paging.DatabaseOrder;
+import net.taskwolf.core.database.paging.DatabasePage;
 import net.taskwolf.core.organization.OrganizationDatabaseTable;
 import net.taskwolf.core.organization.team.Team;
 import net.taskwolf.core.organization.team.TeamDatabaseTable;
@@ -12,6 +16,7 @@ import net.taskwolf.core.user.UserDatabaseTable;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 
 public final class Table extends DatabaseTable {
   public static CompletableFuture<Table> create(
@@ -101,7 +106,7 @@ public final class Table extends DatabaseTable {
 
   public CompletableFuture<Boolean> updateContent(UUID id, TableRow row) {
     return findTableBundleOwner().thenCompose(bundleOwner ->
-      selectRow("owner=" + entry.owner() + " AND id=" + id)
+      selectRow(DatabaseCondition.of("owner", entry.owner(), "id", id))
         .thenApply(previousRow -> TableRow.of(previousRow, columns()))
         .thenApply(previousRow -> row.size() - previousRow.size())
         .thenCompose(sizeAddition -> checkDatabaseSizeLimit(bundleOwner, sizeAddition)
@@ -118,7 +123,7 @@ public final class Table extends DatabaseTable {
     }
     tableSizeDatabaseTable.updateSize(bundleOwner, sizeAddition);
     tableDatabaseTable.updateTableSize(entry, totalSize);
-    update("owner=" + entry.owner() + " AND id=" + id,
+    update(DatabaseCondition.of("owner", entry.owner(), "id", id),
       DatabaseRow.of(createRowValues(row)));
     return true;
   }
@@ -154,13 +159,13 @@ public final class Table extends DatabaseTable {
   }
 
   public CompletableFuture<Boolean> contentExists(UUID id) {
-    return exists("owner=" + entry.owner() + " AND id=" + id);
+    return exists(DatabaseCondition.of("owner", entry.owner(), "id", id));
   }
 
   private static final int PAGE_SIZE = 5;
 
   public CompletableFuture<DatabasePage<TableRow>> findContentPage(int targetPage) {
-    return selectPage(DatabaseCell.create(entry.owner()), Lists.newArrayList(),
+    return selectPage(entry.owner(), DatabaseCondition.empty(),
       DatabaseOrder.ASCENDING, PAGE_SIZE, targetPage)
       .thenApply(this::createContentPage);
   }
@@ -168,7 +173,7 @@ public final class Table extends DatabaseTable {
   public CompletableFuture<DatabasePage<TableRow>> shiftContentPage(
     String pageState, DatabaseDirection startingPoint, DatabaseDirection direction
   ) {
-    return shiftPage(DatabaseCell.create(entry.owner()), Lists.newArrayList(),
+    return shiftPage(entry.owner(), DatabaseCondition.empty(),
       DatabaseOrder.ASCENDING, PAGE_SIZE, pageState, startingPoint, direction)
       .thenApply(this::createContentPage);
   }
@@ -183,14 +188,15 @@ public final class Table extends DatabaseTable {
 
   public void removeContent(UUID id) {
     findTableBundleOwner().thenCompose(bundleOwner ->
-      selectRow("owner=" + entry.owner() + " AND id=" + id)
+      selectRow(DatabaseCondition.of("owner", entry.owner(), "id", id))
         .thenApply(row -> TableRow.of(row, columns()))
         .thenApply(row -> - row.size())
         .thenCompose(sizeAddition ->
           tableSizeDatabaseTable.updateSize(bundleOwner, sizeAddition)
             .thenAccept(value -> tableDatabaseTable.updateTableSize(entry,
               entry.size() + sizeAddition))
-            .thenAccept(value -> delete("owner=" + entry.owner() + " AND id=" + id))));
+            .thenAccept(value -> delete(DatabaseCondition.of("owner",
+              entry.owner(), "id", id)))));
   }
 
   private CompletableFuture<List<DatabaseColumn>> findTableColumns() {
@@ -200,11 +206,8 @@ public final class Table extends DatabaseTable {
     query.append("' AND table_name = '");
     query.append(name());
     query.append("';");
-    var result = connection().session().executeAsync(query.toString());
-    var futureResponse = new CompletableFuture<List<DatabaseColumn>>();
-    result.thenAccept(resultSet ->
-      futureResponse.complete(createDatabaseColumns(resultSet.currentPage())));
-    return futureResponse;
+    return connection().execute(query)
+      .thenApply(result -> createDatabaseColumns(result.currentPage()));
   }
 
   private List<DatabaseColumn> createDatabaseColumns(Iterable<Row> rows) {
@@ -244,13 +247,22 @@ public final class Table extends DatabaseTable {
       columnType);
   }
 
+  private static final Pattern COLUMN_PATTERN =
+    Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*$");
+
   @Override
   public CompletableFuture<Void> addColumn(DatabaseColumn column) {
+    if (!COLUMN_PATTERN.matcher(column.name()).matches()) {
+      return CompletableFuture.completedFuture(null);
+    }
     return super.addColumn(column).thenAccept(value -> recalculateTableSize());
   }
 
   @Override
   public CompletableFuture<Void> dropColumn(String columnName) {
+    if (!COLUMN_PATTERN.matcher(columnName).matches()) {
+      return CompletableFuture.completedFuture(null);
+    }
     return super.dropColumn(columnName).thenAccept(value -> recalculateTableSize());
   }
 
@@ -264,7 +276,7 @@ public final class Table extends DatabaseTable {
   }
 
   @Override
-  protected void drop(String addition) {
+  public void drop(String addition) {
     super.drop(addition);
     findTableBundleOwner().thenCompose(bundleOwner ->
       tableSizeDatabaseTable.updateSize(bundleOwner, -entry.size()));

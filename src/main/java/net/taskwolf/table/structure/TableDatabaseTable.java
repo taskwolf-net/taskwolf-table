@@ -2,6 +2,11 @@ package net.taskwolf.table.structure;
 
 import com.google.common.collect.Lists;
 import net.taskwolf.core.database.*;
+import net.taskwolf.core.database.condition.DatabaseComparison;
+import net.taskwolf.core.database.condition.DatabaseCondition;
+import net.taskwolf.core.database.paging.DatabaseDirection;
+import net.taskwolf.core.database.paging.DatabaseOrder;
+import net.taskwolf.core.database.paging.DatabasePage;
 
 import java.util.List;
 import java.util.Random;
@@ -85,14 +90,14 @@ public final class TableDatabaseTable extends DatabaseTable {
   }
 
   private void updateTable(TableEntry entry) {
-    update("owner=" + entry.owner() + " AND id='" + entry.id() + "'",
+    update(DatabaseCondition.of("owner", entry.owner(), "id", entry.id()),
       DatabaseRow.of(entry.owner(), entry.id(), entry.creator(), entry.name(),
         entry.created(), entry.size()));
   }
 
   public void deleteTable(String tableId) {
     findTable(tableId).thenAccept(table ->
-      delete("owner=" + table.owner() + " AND id='" + table.id() + "'"));
+      delete(DatabaseCondition.of("owner", table.owner(), "id", table.id())));
   }
 
   public CompletableFuture<String> generateAvailableTableId() {
@@ -115,11 +120,11 @@ public final class TableDatabaseTable extends DatabaseTable {
   }
 
   public CompletableFuture<Boolean> tableExists(String tableId) {
-    return exists("id='" + tableId + "'");
+    return exists(DatabaseCondition.of("id", tableId));
   }
 
   public CompletableFuture<TableEntry> findTable(String tableId) {
-    return selectRow("id='" + tableId + "'").thenApply(row ->
+    return selectRow(DatabaseCondition.of("id", tableId)).thenApply(row ->
       TableEntry.of(row, this));
   }
 
@@ -131,14 +136,14 @@ public final class TableDatabaseTable extends DatabaseTable {
     long minimumSize, long maximumSize
   ) {
     if (!search.isEmpty()) {
-      return selectRows("owner=" + ownerId + " AND name LIKE '%" + search +
-        "%' LIMIT " + PAGE_SIZE)
+      var condition = DatabaseCondition.of(DatabaseComparison.create("owner", ownerId),
+        DatabaseComparison.create("name", "%" + search + "%", DatabaseComparison.Type.LIKE));
+      return selectRows(condition, PAGE_SIZE)
         .thenApply(rows -> createTablePage(DatabasePage.create(rows, "", 1), this));
     }
     var view = findTargetView(sortingColumn);
-    return view.selectPage(DatabaseCell.create(ownerId),
-        createTableConditions(creatorId, startTime, endTime, minimumSize,
-          maximumSize), sortingOrder, PAGE_SIZE, targetPage)
+    return view.selectPage(ownerId, createTableConditions(creatorId, startTime,
+        endTime, minimumSize, maximumSize), sortingOrder, PAGE_SIZE, targetPage)
       .thenApply(page -> createTablePage(page, view));
   }
 
@@ -149,9 +154,9 @@ public final class TableDatabaseTable extends DatabaseTable {
     long maximumSize
   ) {
     var view = findTargetView(sortingColumn);
-    return view.shiftPage(DatabaseCell.create(ownerId),
-        createTableConditions(creatorId, startTime, endTime, minimumSize,
-          maximumSize), sortingOrder, PAGE_SIZE, pageState, startingPoint, direction)
+    return view.shiftPage(ownerId, createTableConditions(creatorId, startTime,
+        endTime, minimumSize, maximumSize), sortingOrder, PAGE_SIZE, pageState,
+        startingPoint, direction)
       .thenApply(page -> createTablePage(page, view));
   }
 
@@ -168,27 +173,31 @@ public final class TableDatabaseTable extends DatabaseTable {
     return null;
   }
 
-  private List<String> createTableConditions(
+  private DatabaseCondition createTableConditions(
     UUID creatorId, long startTime, long endTime, long minimumSize,
     long maximumSize
   ) {
-    var conditions = Lists.<String>newArrayList();
+    var comparisons = Lists.<DatabaseComparison>newArrayList();
     if (creatorId != null) {
-      conditions.add("creator = " + creatorId);
+      comparisons.add(DatabaseComparison.create("creator", creatorId));
     }
     if (startTime > 0) {
-      conditions.add("created >= " + startTime);
+      comparisons.add(DatabaseComparison.create("created", startTime,
+        DatabaseComparison.Type.GREATER_EQUALS));
     }
     if (endTime > 0) {
-      conditions.add("created <= " + endTime);
+      comparisons.add(DatabaseComparison.create("created", endTime,
+        DatabaseComparison.Type.SMALLER_EQUALS));
     }
     if (minimumSize > 0) {
-      conditions.add("size >= " + minimumSize);
+      comparisons.add(DatabaseComparison.create("size", minimumSize,
+        DatabaseComparison.Type.GREATER_EQUALS));
     }
     if (maximumSize > 0) {
-      conditions.add("size <= " + maximumSize);
+      comparisons.add(DatabaseComparison.create("size", maximumSize,
+        DatabaseComparison.Type.SMALLER_EQUALS));
     }
-    return conditions;
+    return DatabaseCondition.create(comparisons);
   }
 
   private DatabasePage<TableEntry> createTablePage(
@@ -200,11 +209,11 @@ public final class TableDatabaseTable extends DatabaseTable {
   }
 
   public CompletableFuture<Long> findTableCount(UUID ownerId) {
-    return count("owner=" + ownerId);
+    return count(DatabaseCondition.of("owner", ownerId));
   }
 
   public CompletableFuture<List<TableEntry>> findAllTablesOfOwner(UUID ownerId) {
-    return selectRows("owner=" + ownerId).thenApply(rows ->
+    return selectRows(DatabaseCondition.of("owner", ownerId)).thenApply(rows ->
       rows.stream().map(row -> TableEntry.of(row, this)).toList());
   }
 }
