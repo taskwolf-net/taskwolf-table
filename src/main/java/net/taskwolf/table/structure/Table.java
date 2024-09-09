@@ -276,10 +276,10 @@ public final class Table extends DatabaseTable {
   }
 
   @Override
-  public void drop(String addition) {
-    super.drop(addition);
+  public CompletableFuture<Void> drop(String addition) {
     findTableBundleOwner().thenCompose(bundleOwner ->
       tableSizeDatabaseTable.updateSize(bundleOwner, -entry.size()));
+    return super.drop(addition);
   }
 
   private CompletableFuture<UUID> findTableBundleOwner() {
