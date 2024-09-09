@@ -118,7 +118,7 @@ public final class TableModificationController extends TableController {
       DatabaseColumn.Type.CLUSTERING_KEY));
     defaultColumns.add(DatabaseColumn.create("data", DatabaseDataType.TEXT));
     var table = tableFactory.create(entry, defaultColumns);
-    table.createIfNotExists();
+    table.createIfNotExists(false);
   }
 
   @RequestMapping(path = "/table/entry/insert/", method = RequestMethod.POST)
