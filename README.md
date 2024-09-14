@@ -1,9 +1,9 @@
-# Taskwolf - Table
+# Dulno - Table
 
-This module implements the table / database function of Taskwolf. Users can store collected data directly with us and later analysis tools will be developed to evaluate them.
+This module implements the table / database function of Dulno. Users can store collected data directly with us and later analysis tools will be developed to evaluate them.
 
 ## Status
 
-|             | Build Status                                                                                    |
-|-------------|-------------------------------------------------------------------------------------------------|
-| Master      | ![Java CI with Gradle](https://git.taskwolf.net/root/taskwolf-table/badges/master/pipeline.svg) |
+|             | Build Status                                                                                 |
+|-------------|----------------------------------------------------------------------------------------------|
+| Master      | ![Java CI with Gradle](https://git.dulno.com/root/dulno-table/badges/master/pipeline.svg) |
