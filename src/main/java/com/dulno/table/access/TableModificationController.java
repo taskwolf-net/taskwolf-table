@@ -66,7 +66,7 @@ public final class TableModificationController extends TableController {
       return CompletableFuture.completedFuture(null);
     }
     return findUser(request).thenCompose(user ->
-      userTargetDatabaseTable().findTarget(user.id()).thenCompose(target ->
+      userTargetDatabaseTable().findTargetSecured(user.id()).thenCompose(target ->
         findTableOwner(user, target).thenCompose(owner ->
           tableDatabaseTable().generateAvailableTableId().thenCompose(tableId ->
             checkDatabaseNumberLimit(user, target).thenAccept(limitReached ->
