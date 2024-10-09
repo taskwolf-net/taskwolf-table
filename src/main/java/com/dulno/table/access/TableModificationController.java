@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 @RestController
@@ -219,8 +220,11 @@ public final class TableModificationController extends TableController {
     return information;
   }
 
+  private static final Pattern COLUMN_PATTERN =
+    Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*$");
+
   @RequestMapping(path = "/table/column/add/", method = RequestMethod.POST)
-  public void addTableColumn(
+  public CompletableFuture<Map<String, Object>> addTableColumn(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
@@ -228,18 +232,27 @@ public final class TableModificationController extends TableController {
     var tableId = body.getString("table");
     var columnName = body.getString("columnName");
     if (columnName.equalsIgnoreCase("id") || columnName.equalsIgnoreCase("owner")) {
-      return;
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "errorCode", 1000));
     }
-    performTableOperation(findUserId(request), tableId, tableEntry ->
-      tableFactory.create(tableEntry).thenAccept(table ->
-        addTableColumn(table, columnName)), () -> {});
+    if (!COLUMN_PATTERN.matcher(columnName).matches()) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "errorCode", 1001));
+    }
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    performTableOperation(findUserId(request), tableId,
+      tableEntry -> tableFactory.create(tableEntry).thenAccept(table ->
+        futureResponse.complete(addTableColumn(table, columnName))),
+      () -> futureResponse.complete(Map.of("success", false)));
+    return futureResponse;
   }
 
-  private void addTableColumn(Table table, String columnName) {
+  private Map<String, Object> addTableColumn(Table table, String columnName) {
     if (table.columns().stream().anyMatch(column -> column.name().equals(columnName))) {
-      return;
+      return Map.of("success", false, "errorCode", 1002);
     }
     table.addColumn(DatabaseColumn.create(columnName, DatabaseDataType.TEXT));
+    return Map.of("success", true);
   }
 
   @RequestMapping(path = "/table/column/remove/", method = RequestMethod.POST)
