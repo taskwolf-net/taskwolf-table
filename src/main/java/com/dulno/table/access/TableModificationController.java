@@ -19,7 +19,6 @@ import com.dulno.core.organization.team.TeamTargetDatabaseTable;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserTargetDatabaseTable;
-import com.dulno.table.structure.*;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -62,7 +61,7 @@ public final class TableModificationController extends TableController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var name = body.getString("name");
+    var name = body.getString("name", 64);
     if (name.isEmpty()) {
       return CompletableFuture.completedFuture(null);
     }
@@ -141,8 +140,8 @@ public final class TableModificationController extends TableController {
   }
 
   private CompletableFuture<Void> insertTableEntry(
-          TableEntry tableEntry, Table table, UUID contentId,
-          Map<String, Object> rowContent, HttpServletResponse response
+    TableEntry tableEntry, Table table, UUID contentId,
+    Map<String, Object> rowContent, HttpServletResponse response
   ) {
     var cells = Lists.<TableCell>newArrayList();
     cells.add(TableCell.create("owner", tableEntry.owner()));
@@ -230,7 +229,7 @@ public final class TableModificationController extends TableController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var tableId = body.getString("table");
-    var columnName = body.getString("columnName");
+    var columnName = body.getString("columnName", 64);
     if (columnName.equalsIgnoreCase("id") || columnName.equalsIgnoreCase("owner")) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "errorCode", 1000));
@@ -285,7 +284,7 @@ public final class TableModificationController extends TableController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var tableId = body.getString("table");
-    var tableName = body.getString("name");
+    var tableName = body.getString("name", 64);
     if (tableName.replace(" ", "").isEmpty()) {
       return;
     }
