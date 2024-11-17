@@ -1,5 +1,6 @@
 package com.dulno.table;
 
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.table.action.insert.TableInsertEntryAction;
 import com.dulno.table.action.remove.TableRemoveEntryAction;
 import com.dulno.table.structure.TableDatabaseTable;
@@ -84,9 +85,11 @@ public final class TableModule extends Module {
     var databaseKeyspace = injector().getInstance(DatabaseKeyspace.class);
     var tableDatabaseTable = injector().getInstance(TableDatabaseTable.class);
     var tableFactory = injector().getInstance(TableFactory.class);
+    var errorRepository = injector().getInstance(ErrorRepository.class);
     var repository = ActionRepository.create();
     repository.registerAction(TableInsertEntryAction.create(tableComponentSelect,
-      tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
+      tableDatabaseTable, tableFactory, errorRepository, databaseConnection,
+      databaseKeyspace));
     repository.registerAction(TableRemoveEntryAction.create(tableComponentSelect,
       tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
     return repository;

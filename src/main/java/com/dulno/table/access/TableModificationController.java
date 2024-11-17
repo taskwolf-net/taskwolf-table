@@ -1,5 +1,6 @@
 package com.dulno.table.access;
 
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.table.structure.*;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -38,6 +39,7 @@ public final class TableModificationController extends TableController {
   private final BundleDatabaseTable bundleDatabaseTable;
   private final TeamDatabaseTable teamDatabaseTable;
   private final CoreModule coreModule;
+  private final ErrorRepository errorRepository;
 
   private TableModificationController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -45,7 +47,8 @@ public final class TableModificationController extends TableController {
     UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
     TableFactory tableFactory, BundleDatabaseTable bundleDatabaseTable,
-    TeamDatabaseTable teamDatabaseTable, CoreModule coreModule
+    TeamDatabaseTable teamDatabaseTable, CoreModule coreModule,
+    ErrorRepository errorRepository
   ) {
     super(secretKey, userDatabaseTable, tableDatabaseTable,
       userTargetDatabaseTable, teamTargetDatabaseTable);
@@ -53,6 +56,7 @@ public final class TableModificationController extends TableController {
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.teamDatabaseTable = teamDatabaseTable;
     this.coreModule = coreModule;
+    this.errorRepository = errorRepository;
   }
 
   @RequestMapping(path = "/table/create/", method = RequestMethod.POST)
@@ -152,7 +156,7 @@ public final class TableModificationController extends TableController {
     coreModule.triggerWorkflows("table", "database-entry-insert-trigger",
       DatabaseCondition.of("tableId", tableEntry.id()),
       tableInsertInformation(table, contentId));
-    return table.insertContent(TableRow.create(cells))
+    return table.insertContent(TableRow.create(errorRepository, cells))
       .thenAccept(success -> response.setStatus(success ?
         HttpServletResponse.SC_OK : HttpServletResponse.SC_BAD_REQUEST));
   }
@@ -189,7 +193,7 @@ public final class TableModificationController extends TableController {
     for (var entry : rowContent.entrySet()) {
       cells.add(TableCell.create(entry.getKey(), entry.getValue()));
     }
-    return table.updateContent(rowId, TableRow.create(cells))
+    return table.updateContent(rowId, TableRow.create(errorRepository, cells))
       .thenAccept(success -> response.setStatus(success ?
         HttpServletResponse.SC_OK : HttpServletResponse.SC_BAD_REQUEST));
   }

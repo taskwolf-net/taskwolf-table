@@ -1,5 +1,6 @@
 package com.dulno.table.structure;
 
+import com.dulno.core.error.ErrorRepository;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.google.inject.name.Named;
@@ -24,6 +25,7 @@ public final class TableFactory {
   private final BundleDatabaseTable bundleDatabaseTable;
   private final TableDatabaseTable tableDatabaseTable;
   private final TableSizeDatabaseTable tableSizeDatabaseTable;
+  private final ErrorRepository errorRepository;
 
   @Inject
   private TableFactory(
@@ -33,7 +35,7 @@ public final class TableFactory {
     OrganizationDatabaseTable organizationDatabaseTable,
     TeamDatabaseTable teamDatabaseTable, BundleDatabaseTable bundleDatabaseTable,
     TableDatabaseTable tableDatabaseTable,
-    TableSizeDatabaseTable tableSizeDatabaseTable
+    TableSizeDatabaseTable tableSizeDatabaseTable, ErrorRepository errorRepository
   ) {
     this.tableConnection = tableConnection;
     this.tableKeyspace = tableKeyspace;
@@ -43,17 +45,18 @@ public final class TableFactory {
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.tableDatabaseTable = tableDatabaseTable;
     this.tableSizeDatabaseTable = tableSizeDatabaseTable;
+    this.errorRepository = errorRepository;
   }
 
   public CompletableFuture<Table> create(TableEntry entry) {
     return Table.create(tableConnection, tableKeyspace, userDatabaseTable,
       organizationDatabaseTable, teamDatabaseTable, bundleDatabaseTable,
-      tableDatabaseTable, tableSizeDatabaseTable, entry);
+      tableDatabaseTable, tableSizeDatabaseTable, errorRepository, entry);
   }
 
   public Table create(TableEntry entry, List<DatabaseColumn> columns) {
     return Table.create(tableConnection, tableKeyspace, userDatabaseTable,
       organizationDatabaseTable, teamDatabaseTable, bundleDatabaseTable,
-      tableDatabaseTable, tableSizeDatabaseTable, columns, entry);
+      tableDatabaseTable, tableSizeDatabaseTable, errorRepository, columns, entry);
   }
 }

@@ -1,6 +1,7 @@
 package com.dulno.table.action.insert;
 
 import com.datastax.oss.driver.shaded.guava.common.collect.Maps;
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.table.structure.*;
 import com.google.common.collect.Lists;
 import lombok.AllArgsConstructor;
@@ -19,6 +20,7 @@ import java.util.concurrent.CompletableFuture;
 public final class TableInsertEntryActionExecutor implements ActionExecutor {
   private final TableDatabaseTable tableDatabaseTable;
   private final TableFactory tableFactory;
+  private final ErrorRepository errorRepository;
   private final String tableIdentifier;
   private String entryContent;
 
@@ -41,14 +43,15 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
   }
 
   private CompletableFuture<ActionResult> execute(
-          Map<String, Object> information, TableEntry tableEntry, Table table, UUID contentId
+    Map<String, Object> information, TableEntry tableEntry, Table table, UUID contentId
   ) {
     var placeholderDissolve = PlaceholderDissolve.create(information);
     entryContent = placeholderDissolve.dissolve(entryContent);
     try {
       var cells = createCells(tableEntry, table, contentId);
-      return table.insertContent(TableRow.create(cells)).thenApply(success ->
-        success ? ActionResult.success(buildInformation(table, contentId)) :
+      return table.insertContent(TableRow.create(errorRepository, cells))
+        .thenApply(success -> success ? ActionResult.success(
+          buildInformation(table, contentId)) :
           ActionResult.failure("table.action.entry.insert.failure.data.limit.reached"));
     } catch (Exception exception) {
       return ActionResult.futureFailure(exception.getMessage());

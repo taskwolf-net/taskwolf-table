@@ -1,6 +1,7 @@
 package com.dulno.table.structure;
 
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.dulno.core.error.ErrorRepository;
 import com.google.common.collect.Lists;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.database.*;
@@ -25,11 +26,13 @@ public final class Table extends DatabaseTable {
     OrganizationDatabaseTable organizationDatabaseTable,
     TeamDatabaseTable teamDatabaseTable, BundleDatabaseTable bundleDatabaseTable,
     TableDatabaseTable tableDatabaseTable,
-    TableSizeDatabaseTable tableSizeDatabaseTable, TableEntry entry
+    TableSizeDatabaseTable tableSizeDatabaseTable, ErrorRepository errorRepository,
+    TableEntry entry
   ) {
     var table = new Table(connection, keyspace, entry.id(), Lists.newArrayList(),
       userDatabaseTable, organizationDatabaseTable, teamDatabaseTable,
-      bundleDatabaseTable, tableDatabaseTable, tableSizeDatabaseTable, entry);
+      bundleDatabaseTable, tableDatabaseTable, tableSizeDatabaseTable,
+      errorRepository, entry);
     return table.findTableColumns().thenAccept(table::fillColumns)
       .thenApply(value -> table);
   }
@@ -40,12 +43,13 @@ public final class Table extends DatabaseTable {
     OrganizationDatabaseTable organizationDatabaseTable,
     TeamDatabaseTable teamDatabaseTable, BundleDatabaseTable bundleDatabaseTable,
     TableDatabaseTable tableDatabaseTable,
-    TableSizeDatabaseTable tableSizeDatabaseTable, List<DatabaseColumn> columns,
-    TableEntry entry
+    TableSizeDatabaseTable tableSizeDatabaseTable, ErrorRepository errorRepository,
+    List<DatabaseColumn> columns, TableEntry entry
   ) {
     return new Table(connection, keyspace, entry.id(), columns,
       userDatabaseTable, organizationDatabaseTable, teamDatabaseTable,
-      bundleDatabaseTable, tableDatabaseTable, tableSizeDatabaseTable, entry);
+      bundleDatabaseTable, tableDatabaseTable, tableSizeDatabaseTable,
+      errorRepository, entry);
   }
 
   private final UserDatabaseTable userDatabaseTable;
@@ -54,6 +58,7 @@ public final class Table extends DatabaseTable {
   private final BundleDatabaseTable bundleDatabaseTable;
   private final TableDatabaseTable tableDatabaseTable;
   private final TableSizeDatabaseTable tableSizeDatabaseTable;
+  private final ErrorRepository errorRepository;
   private final TableEntry entry;
 
   private Table(
@@ -62,7 +67,8 @@ public final class Table extends DatabaseTable {
     OrganizationDatabaseTable organizationDatabaseTable,
     TeamDatabaseTable teamDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable, TableDatabaseTable tableDatabaseTable,
-    TableSizeDatabaseTable tableSizeDatabaseTable, TableEntry entry
+    TableSizeDatabaseTable tableSizeDatabaseTable, ErrorRepository errorRepository,
+    TableEntry entry
   ) {
     super(connection, keyspace, name, columns);
     this.userDatabaseTable = userDatabaseTable;
@@ -71,6 +77,7 @@ public final class Table extends DatabaseTable {
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.tableDatabaseTable = tableDatabaseTable;
     this.tableSizeDatabaseTable = tableSizeDatabaseTable;
+    this.errorRepository = errorRepository;
     this.entry = entry;
   }
 
@@ -107,7 +114,7 @@ public final class Table extends DatabaseTable {
   public CompletableFuture<Boolean> updateContent(UUID id, TableRow row) {
     return findTableBundleOwner().thenCompose(bundleOwner ->
       selectRow(DatabaseCondition.of("owner", entry.owner(), "id", id))
-        .thenApply(previousRow -> TableRow.of(previousRow, columns()))
+        .thenApply(previousRow -> TableRow.of(errorRepository, previousRow, columns()))
         .thenApply(previousRow -> row.size() - previousRow.size())
         .thenCompose(sizeAddition -> checkDatabaseSizeLimit(bundleOwner, sizeAddition)
           .thenApply(limitReached -> updateContent(id, row, bundleOwner,
@@ -182,14 +189,15 @@ public final class Table extends DatabaseTable {
     DatabasePage<DatabaseRow> page
   ) {
     return DatabasePage.create(
-      page.content().stream().map(row -> TableRow.of(row, columns())).toList(),
+      page.content().stream().map(row ->
+        TableRow.of(errorRepository, row, columns())).toList(),
       page.pageState(), page.pageNumber());
   }
 
   public void removeContent(UUID id) {
     findTableBundleOwner().thenCompose(bundleOwner ->
       selectRow(DatabaseCondition.of("owner", entry.owner(), "id", id))
-        .thenApply(row -> TableRow.of(row, columns()))
+        .thenApply(row -> TableRow.of(errorRepository, row, columns()))
         .thenApply(row -> - row.size())
         .thenCompose(sizeAddition ->
           tableSizeDatabaseTable.updateSize(bundleOwner, sizeAddition)
@@ -268,7 +276,7 @@ public final class Table extends DatabaseTable {
 
   private void recalculateTableSize() {
     var futureSize = selectAllRows().thenApply(rows -> rows.stream()
-      .mapToLong(row -> TableRow.of(row, columns()).size()).sum());
+      .mapToLong(row -> TableRow.of(errorRepository, row, columns()).size()).sum());
     futureSize.thenAccept(size ->
       findTableBundleOwner().thenCompose(bundleOwner ->
         tableSizeDatabaseTable.updateSize(bundleOwner, size - entry.size())
