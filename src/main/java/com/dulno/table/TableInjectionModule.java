@@ -1,5 +1,6 @@
 package com.dulno.table;
 
+import com.dulno.core.error.ErrorRepository;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
@@ -23,10 +24,11 @@ public class TableInjectionModule extends AbstractModule {
   @Singleton
   @Named("tableConnection")
   DatabaseConnection provideTableConnection(
-    DatabaseConfiguration configuration, Log log
+    DatabaseConfiguration configuration, Log log, ErrorRepository errorRepository
   ) {
     var tableConnection = DatabaseConnection.create(configuration, log);
     tableConnection.connect();
+    tableConnection.errorRepository(errorRepository);
     return tableConnection;
   }
 
