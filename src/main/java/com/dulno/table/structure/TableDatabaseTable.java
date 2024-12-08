@@ -60,43 +60,43 @@ public final class TableDatabaseTable extends DatabaseTable {
     sizeView = createMaterializedViewIfNotExists("size_view", "size");
   }
 
-  public void insertTable(TableEntry table) {
-    insertTable(table.owner(), table.id(), table.creator(), table.name(),
+  public CompletableFuture<Void> insertTable(TableEntry table) {
+    return insertTable(table.owner(), table.id(), table.creator(), table.name(),
       table.created(), table.size());
   }
 
-  public void insertTable(
+  public CompletableFuture<Void> insertTable(
     UUID owner, String id, UUID creator, String name, long created, long size
   ) {
-    insert(DatabaseRow.of(owner, id, creator, name, created, size));
+    return insert(DatabaseRow.of(owner, id, creator, name, created, size));
   }
 
-  public void changeTableName(String id, String name) {
-    findTable(id).thenAccept(table -> changeTableName(table, name));
+  public CompletableFuture<Void> changeTableName(String id, String name) {
+    return findTable(id).thenAccept(table -> changeTableName(table, name));
   }
 
-  public void changeTableName(TableEntry entry, String name) {
+  public CompletableFuture<Void> changeTableName(TableEntry entry, String name) {
     entry.changeName(name);
-    updateTable(entry);
+    return updateTable(entry);
   }
 
-  public void updateTableSize(String id, long size) {
-    findTable(id).thenAccept(table -> updateTableSize(table, size));
+  public CompletableFuture<Void> updateTableSize(String id, long size) {
+    return findTable(id).thenAccept(table -> updateTableSize(table, size));
   }
 
-  public void updateTableSize(TableEntry entry, long size) {
+  public CompletableFuture<Void> updateTableSize(TableEntry entry, long size) {
     entry.updateSize(size);
-    updateTable(entry);
+    return updateTable(entry);
   }
 
-  private void updateTable(TableEntry entry) {
-    update(DatabaseCondition.of("owner", entry.owner(), "id", entry.id()),
+  private CompletableFuture<Void> updateTable(TableEntry entry) {
+    return update(DatabaseCondition.of("owner", entry.owner(), "id", entry.id()),
       DatabaseRow.of(entry.owner(), entry.id(), entry.creator(), entry.name(),
         entry.created(), entry.size()));
   }
 
-  public void deleteTable(String tableId) {
-    findTable(tableId).thenAccept(table ->
+  public CompletableFuture<Void> deleteTable(String tableId) {
+    return findTable(tableId).thenAccept(table ->
       delete(DatabaseCondition.of("owner", table.owner(), "id", table.id())));
   }
 

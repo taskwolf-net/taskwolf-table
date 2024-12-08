@@ -60,7 +60,7 @@ public final class TableModificationController extends TableController {
   }
 
   @RequestMapping(path = "/table/create/", method = RequestMethod.POST)
-  public CompletableFuture<Void> createTable(
+  public CompletableFuture<Map<String, Object>> createTable(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
@@ -73,7 +73,7 @@ public final class TableModificationController extends TableController {
       userTargetDatabaseTable().findTargetSecured(user.id()).thenCompose(target ->
         findTableOwner(user, target).thenCompose(owner ->
           tableDatabaseTable().generateAvailableTableId().thenCompose(tableId ->
-            checkDatabaseNumberLimit(user, target).thenAccept(limitReached ->
+            checkDatabaseNumberLimit(user, target).thenCompose(limitReached ->
               createTable(tableId, owner, user.id(), name,
                 limitReached, response))))));
   }
@@ -105,17 +105,18 @@ public final class TableModificationController extends TableController {
           Stream.of(target)).toList());
   }
 
-  private void createTable(
+  private CompletableFuture<Map<String, Object>> createTable(
     String tableId, UUID owner, UUID creator, String name, boolean limitReached,
     HttpServletResponse response
   ) {
     if (limitReached) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      return;
+      return CompletableFuture.completedFuture(Maps.newHashMap());
     }
+    var processes = Lists.<CompletableFuture<Void>>newArrayList();
     var entry = TableEntry.create(owner, tableId, creator, name,
       System.currentTimeMillis(), 0);
-    tableDatabaseTable().insertTable(entry);
+    processes.add(tableDatabaseTable().insertTable(entry));
     var defaultColumns = Lists.<DatabaseColumn>newArrayList();
     defaultColumns.add(DatabaseColumn.create("owner", DatabaseDataType.UUID,
       DatabaseColumn.Type.PARTITION_KEY));
@@ -123,7 +124,9 @@ public final class TableModificationController extends TableController {
       DatabaseColumn.Type.CLUSTERING_KEY));
     defaultColumns.add(DatabaseColumn.create("data", DatabaseDataType.TEXT));
     var table = tableFactory.create(entry, defaultColumns);
-    table.createAsyncIfNotExists();
+    processes.add(table.createAsyncIfNotExists());
+    return AsyncIterator.execute(processes, process -> process)
+      .thenApply(value -> Map.of("table", tableId));
   }
 
   @RequestMapping(path = "/table/entry/insert/", method = RequestMethod.POST)
