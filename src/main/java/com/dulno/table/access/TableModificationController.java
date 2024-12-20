@@ -253,9 +253,14 @@ public final class TableModificationController extends TableController {
     return futureResponse;
   }
 
+  private static final int MAX_TABLE_COLUMNS = 20;
+
   private Map<String, Object> addTableColumn(Table table, String columnName) {
     if (table.columns().stream().anyMatch(column -> column.name().equals(columnName))) {
       return Map.of("success", false, "errorCode", 1002);
+    }
+    if ((table.columns().size() - 2) + 1 > MAX_TABLE_COLUMNS) {
+      return Map.of("success", false, "errorCode", 1003);
     }
     table.addColumn(DatabaseColumn.create(columnName, DatabaseDataType.TEXT));
     return Map.of("success", true);
