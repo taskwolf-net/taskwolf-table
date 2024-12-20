@@ -124,7 +124,9 @@ public final class TableModificationController extends TableController {
       DatabaseColumn.Type.CLUSTERING_KEY));
     defaultColumns.add(DatabaseColumn.create("data", DatabaseDataType.TEXT));
     var table = tableFactory.create(entry, defaultColumns);
-    processes.add(table.createAsyncIfNotExists());
+    processes.add(table.createAsyncIfNotExists()
+      .thenCompose(value -> table.createIndexAsyncIfNotExists("id"))
+      .thenCompose(value -> table.createIndexAsyncIfNotExists("data")));
     return AsyncIterator.execute(processes, process -> process)
       .thenApply(value -> Map.of("table", tableId));
   }
@@ -247,27 +249,33 @@ public final class TableModificationController extends TableController {
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performTableOperation(findUserId(request), tableId,
-      tableEntry -> tableFactory.create(tableEntry).thenAccept(table ->
-        futureResponse.complete(addTableColumn(table, columnName))),
+      tableEntry -> tableFactory.create(tableEntry)
+        .thenAccept(table -> addTableColumn(table, columnName)
+          .thenAccept(futureResponse::complete)),
       () -> futureResponse.complete(Map.of("success", false)));
     return futureResponse;
   }
 
   private static final int MAX_TABLE_COLUMNS = 20;
 
-  private Map<String, Object> addTableColumn(Table table, String columnName) {
+  private CompletableFuture<Map<String, Object>> addTableColumn(
+    Table table, String columnName
+  ) {
     if (table.columns().stream().anyMatch(column -> column.name().equals(columnName))) {
-      return Map.of("success", false, "errorCode", 1002);
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "errorCode", 1002));
     }
     if ((table.columns().size() - 2) + 1 > MAX_TABLE_COLUMNS) {
-      return Map.of("success", false, "errorCode", 1003);
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "errorCode", 1003));
     }
-    table.addColumn(DatabaseColumn.create(columnName, DatabaseDataType.TEXT));
-    return Map.of("success", true);
+    return table.addColumn(DatabaseColumn.create(columnName, DatabaseDataType.TEXT))
+      .thenCompose(value -> table.createIndexAsyncIfNotExists(columnName))
+      .thenApply(value -> Map.of("success", true));
   }
 
   @RequestMapping(path = "/table/column/remove/", method = RequestMethod.POST)
-  public void removeTableColumn(
+  public CompletableFuture<Void> removeTableColumn(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
@@ -275,18 +283,22 @@ public final class TableModificationController extends TableController {
     var tableId = body.getString("table");
     var columnName = body.getString("columnName");
     if (columnName.equalsIgnoreCase("id") || columnName.equalsIgnoreCase("owner")) {
-      return;
+      return CompletableFuture.completedFuture(null);
     }
+    var futureResponse = new CompletableFuture<Void>();
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableEntry).thenAccept(table ->
-        removeTableColumn(table, columnName)), () -> {});
+        removeTableColumn(table, columnName).thenAccept(futureResponse::complete)),
+      () -> {});
+    return futureResponse;
   }
 
-  private void removeTableColumn(Table table, String columnName) {
+  private CompletableFuture<Void> removeTableColumn(Table table, String columnName) {
     if (table.columns().stream().noneMatch(column -> column.name().equals(columnName))) {
-      return;
+      return CompletableFuture.completedFuture(null);
     }
-    table.dropColumn(columnName);
+    return table.dropIndexAsyncIfExists(columnName)
+      .thenCompose(value -> table.dropColumn(columnName));
   }
 
   @RequestMapping(path = "/table/rename/", method = RequestMethod.POST)

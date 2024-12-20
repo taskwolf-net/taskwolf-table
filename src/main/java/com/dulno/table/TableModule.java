@@ -1,6 +1,9 @@
 package com.dulno.table;
 
 import com.dulno.core.error.ErrorRepository;
+import com.dulno.table.action.existence.TableCheckEntryExistenceAction;
+import com.dulno.table.action.find.multiple.TableFindEntriesAction;
+import com.dulno.table.action.find.single.TableFindEntryAction;
 import com.dulno.table.action.insert.TableInsertEntryAction;
 import com.dulno.table.action.remove.TableRemoveEntryAction;
 import com.dulno.table.structure.TableDatabaseTable;
@@ -91,6 +94,13 @@ public final class TableModule extends Module {
       tableDatabaseTable, tableFactory, errorRepository, databaseConnection,
       databaseKeyspace));
     repository.registerAction(TableRemoveEntryAction.create(tableComponentSelect,
+      tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
+    repository.registerAction(TableCheckEntryExistenceAction.create(
+      tableComponentSelect, tableDatabaseTable, tableFactory, databaseConnection,
+      databaseKeyspace));
+    repository.registerAction(TableFindEntryAction.create(tableComponentSelect,
+      tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
+    repository.registerAction(TableFindEntriesAction.create(tableComponentSelect,
       tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
     return repository;
   }
