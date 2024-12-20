@@ -89,5 +89,17 @@
   "table.action.entries.find.output.column": "Column name",
   "table.action.entries.find.output.value": "Column value",
   "table.action.entries.find.failure.table.not.found": "An error occurred while finding some entries from a database. The error occurred because the selected database could not be found.",
-  "table.action.entries.find.failure.column.not.found": "An error occurred while finding some entries from a database. The error occurred because the selected column could not be found."
+  "table.action.entries.find.failure.column.not.found": "An error occurred while finding some entries from a database. The error occurred because the selected column could not be found.",
+
+  "table.action.content.parse.name": "Parse entry content",
+  "table.action.content.parse.description": "Used to parse the content of a database entry",
+  "table.action.content.parse.input.content.name": "Content",
+  "table.action.content.parse.input.content.description": "The content of the entry. The content has the following format: Column1=Value1, Column2=Value2, ...",
+  "table.action.content.parse.input.content.placeholder": "Column1=Value1, Column2=Value2, ...",
+  "table.action.content.parse.output.cells": "Cells",
+  "table.action.content.parse.output.cell.column": "Cell column",
+  "table.action.content.parse.output.cell.value": "Cell value",
+  "table.action.content.parse.output.cells.number": "Number of cells",
+  "table.action.content.parse.output.content": "Entry content",
+  "table.action.content.parse.failure.wrong.schema": "An error occurred while parsing the content of an entry into a database. The error occurred because the entered schema does not correspond to the correct one. The content must be in the following format: Column1=Value1, Column2=Value2, ..."
 }

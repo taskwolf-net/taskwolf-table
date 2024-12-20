@@ -89,5 +89,17 @@
   "table.action.entries.find.output.column": "Spalten Name",
   "table.action.entries.find.output.value": "Spalten Wert",
   "table.action.entries.find.failure.table.not.found": "Bei der Suche nach einigen Einträgen in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Datenbank nicht gefunden werden konnte.",
-  "table.action.entries.find.failure.column.not.found": "Bei der Suche nach einigen Einträgen in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Spalte nicht gefunden werden konnte."
+  "table.action.entries.find.failure.column.not.found": "Bei der Suche nach einigen Einträgen in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Spalte nicht gefunden werden konnte.",
+
+  "table.action.content.parse.name": "Inhalt eines Eintrags analysieren",
+  "table.action.content.parse.description": "Dient zum Parsen des Inhalts eines Datenbankeintrags",
+  "table.action.content.parse.input.content.name": "Inhalt",
+  "table.action.content.parse.input.content.description": "Der Inhalt des Eintrags. Der Inhalt hat das folgende Format: Spalte1=Wert1, Spalte2=Wert2, ...",
+  "table.action.content.parse.input.content.placeholder": "Spalte1=Wert1, Spalte2=Wert2, ...",
+  "table.action.content.parse.output.cells": "Zellen",
+  "table.action.content.parse.output.cell.column": "Spalten Zelle",
+  "table.action.content.parse.output.cell.value": "Spalten Wert",
+  "table.action.content.parse.output.cells.number": "Anzahl der Zellen",
+  "table.action.content.parse.output.content": "Inhalt des Eintrags",
+  "table.action.content.parse.failure.wrong.schema": "Beim Parsen des Inhalts eines Eintrags in einer Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil das eingegebene Schema nicht dem richtigen Schema entspricht. Der Inhalt muss in folgendem Format vorliegen: Spalte1=Wert1, Spalte2=Wert2, ..."
 }
