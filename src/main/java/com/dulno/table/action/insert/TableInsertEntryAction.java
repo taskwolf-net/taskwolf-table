@@ -3,16 +3,18 @@ package com.dulno.table.action.insert;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.table.structure.TableFactory;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import lombok.AllArgsConstructor;
 import com.dulno.core.action.Action;
 import com.dulno.core.action.ActionContentDatabaseTable;
 import com.dulno.core.action.ActionInformation;
 import com.dulno.core.database.*;
-import com.dulno.core.workflow.component.input.InputComponentDataType;
 import com.dulno.core.workflow.component.input.InputComponentSelect;
 import com.dulno.core.workflow.component.input.InputComponentVariable;
+import com.dulno.core.workflow.component.input.DynamicInputComponentVariable;
 import com.dulno.core.workflow.component.output.OutputComponentVariable;
 import com.dulno.table.structure.TableDatabaseTable;
+import org.json.JSONObject;
 
 import java.util.Map;
 import java.util.UUID;
@@ -53,11 +55,10 @@ public final class TableInsertEntryAction implements Action<TableInsertEntryActi
       .withDescription("table.action.entry.insert.description")
       .withInputVariable(InputComponentVariable.createSelect("table.action.entry.insert.input.table.name",
         "tableIdentifier", "table.action.entry.insert.input.table.description", tableComponentSelect))
-      .withInputVariable(InputComponentVariable.createRequired("table.action.entry.insert.input.content.name",
-        "entryContent", "table.action.entry.insert.input.content.description",
-        "table.action.entry.insert.input.content.placeholder", InputComponentDataType.TEXT))
+      .withInputVariable(DynamicInputComponentVariable.create("entryContent",
+        Lists.newArrayList("tableIdentifier"),
+        TableInsertEntryActionColumnFunction.create(tableDatabaseTable, tableFactory)))
       .withOutputVariable(OutputComponentVariable.create("table.action.entry.insert.output.table", "tableName"))
-      .withOutputVariable(OutputComponentVariable.create("table.action.entry.insert.output.entry.content", "entryContent"))
       .withOutputVariable(OutputComponentVariable.create("table.action.entry.insert.output.entry.id", "entryId"))
       .build();
   }
@@ -69,15 +70,33 @@ public final class TableInsertEntryAction implements Action<TableInsertEntryActi
 
   @Override
   public CompletableFuture<Void> insert(UUID actionId, Map<String, Object> content) {
-    return contentDatabaseTable.insertContent(actionId, DatabaseRow.of(
-      content.get("tableIdentifier"), content.get("entryContent")));
+    return contentDatabaseTable.insertContent(actionId, encodeContent(content));
+  }
+
+  private DatabaseRow encodeContent(Map<String, Object> content) {
+    var entryContent = new JSONObject();
+    for (var entry : content.entrySet()) {
+      if (entry.getKey().contains("column_")) {
+        entryContent.put(entry.getKey().replace("column_", ""), entry.getValue());
+      }
+    }
+    return DatabaseRow.of(content.get("tableIdentifier"), entryContent.toString());
   }
 
   @Override
   public CompletableFuture<Map<String, Object>> findContent(UUID triggerId) {
-    return contentDatabaseTable.findContent(triggerId).thenApply(row ->
-      Map.of("tableIdentifier", row.findCell(1).stringValue(),
-        "entryContent", row.findCell(2).stringValue()));
+    return contentDatabaseTable.findContent(triggerId)
+      .thenApply(this::decodeContent);
+  }
+
+  private Map<String, Object> decodeContent(DatabaseRow row) {
+    var content = Maps.<String, Object>newHashMap();
+    content.put("tableIdentifier", row.findCell(1).stringValue());
+    var entryContent = new JSONObject(row.findCell(2).stringValue());
+    for (var entry : entryContent.keySet()) {
+      content.put("column_" + entry, entryContent.getString(entry));
+    }
+    return content;
   }
 
   @Override
