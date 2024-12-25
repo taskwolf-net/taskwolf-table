@@ -56,8 +56,11 @@ public final class TableFindEntriesAction implements Action<TableFindEntriesActi
       .withInputVariable(InputComponentVariable.createRequired("table.action.entries.find.input.value.name",
         "entriesValue", "table.action.entries.find.input.value.description", InputComponentDataType.TEXT))
       .withOutputVariable(ListOutputComponentVariable.create("table.action.entries.find.output.entries", "entries",
-          OutputComponentVariable.create("table.action.entries.find.output.entry.id", "entryId"),
-          OutputComponentVariable.create("table.action.entries.find.output.entry.content", "entryContent")))
+        OutputComponentVariable.create("table.action.entries.find.output.entry.id", "entryId"),
+        ListOutputComponentVariable.create("table.action.entries.find.output.entry.cells", "entryCells",
+          OutputComponentVariable.create("table.action.entries.find.output.entry.cell.column", "entryCellColumn"),
+          OutputComponentVariable.create("table.action.entries.find.output.entry.cell.value", "entryCellValue")),
+        OutputComponentVariable.create("table.action.entries.find.output.entry.cells.number", "entryCellsNumber")))
       .withOutputVariable(OutputComponentVariable.create("table.action.entries.find.output.entries.number", "entriesNumber"))
       .withOutputVariable(OutputComponentVariable.create("table.action.entries.find.output.table", "tableName"))
       .withOutputVariable(OutputComponentVariable.create("table.action.entries.find.output.column", "entriesColumn"))

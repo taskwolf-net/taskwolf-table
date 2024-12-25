@@ -9,6 +9,7 @@ import com.dulno.core.workflow.placeholder.PlaceholderDissolve;
 import com.dulno.table.structure.Table;
 import com.dulno.table.structure.TableDatabaseTable;
 import com.dulno.table.structure.TableFactory;
+import com.google.common.collect.Lists;
 import lombok.AllArgsConstructor;
 import org.json.JSONArray;
 
@@ -42,6 +43,8 @@ public final class TableFindEntriesActionExecutor implements ActionExecutor {
         .thenCompose(table -> execute(information, table)));
   }
 
+  private static final long ENTRY_LIMIT = 100;
+
   private CompletableFuture<ActionResult> execute(
     Map<String, Object> information, Table table
   ) {
@@ -52,32 +55,33 @@ public final class TableFindEntriesActionExecutor implements ActionExecutor {
       return ActionResult.futureFailure("table.action.entries.find.failure.column.not.found");
     }
     var condition = DatabaseCondition.of(entriesColumn, entriesValue);
-    return table.selectRows(condition)
+    return table.selectRows(condition, ENTRY_LIMIT)
       .thenApply(rows -> ActionResult.success(buildInformation(table,
         rows.stream()
           .map(row -> buildRowInformation(row.findCell(1).uuidValue(),
-            parseRowContent(table, row)))
+            createCells(table, row)))
           .toList())));
   }
 
-  private String parseRowContent(Table table, DatabaseRow row) {
+  private List<Map<String, Object>> createCells(
+    Table table, DatabaseRow row
+  ) {
+    var cells = Lists.<Map<String, Object>>newArrayList();
     var columns = table.columns();
-    var content = new StringBuilder();
     for (var i = 2; i < columns.size(); i++) {
-      content.append(columns.get(i).name());
-      content.append("=");
-      content.append(row.findCell(i).rawValue());
-      if (i < columns.size() - 1) {
-        content.append(",");
-      }
+      cells.add(Map.of("entryCellColumn", columns.get(i).name().toLowerCase(),
+        "entryCellValue", row.findCell(i).rawValue()));
     }
-    return content.toString();
+    return cells;
   }
 
-  private Map<String, Object> buildRowInformation(UUID id, String row) {
+  private Map<String, Object> buildRowInformation(
+    UUID id, List<Map<String, Object>> cells
+  ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("entryId", id);
-    information.put("entryContent", row);
+    information.put("entryCells", new JSONArray(cells));
+    information.put("entryCellsNumber", cells.size());
     return information;
   }
 

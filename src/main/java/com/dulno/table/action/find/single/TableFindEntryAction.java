@@ -7,6 +7,7 @@ import com.dulno.core.database.*;
 import com.dulno.core.workflow.component.input.InputComponentDataType;
 import com.dulno.core.workflow.component.input.InputComponentSelect;
 import com.dulno.core.workflow.component.input.InputComponentVariable;
+import com.dulno.core.workflow.component.output.ListOutputComponentVariable;
 import com.dulno.core.workflow.component.output.OutputComponentVariable;
 import com.dulno.table.structure.TableDatabaseTable;
 import com.dulno.table.structure.TableFactory;
@@ -55,7 +56,10 @@ public final class TableFindEntryAction implements Action<TableFindEntryActionEx
       .withInputVariable(InputComponentVariable.createRequired("table.action.entry.find.input.value.name",
         "entryValue", "table.action.entry.find.input.value.description", InputComponentDataType.TEXT))
       .withOutputVariable(OutputComponentVariable.create("table.action.entry.find.output.entry.id", "entryId"))
-      .withOutputVariable(OutputComponentVariable.create("table.action.entry.find.output.entry.content", "entryContent"))
+      .withOutputVariable(ListOutputComponentVariable.create("table.action.entry.find.output.entry.cells", "entryCells",
+        OutputComponentVariable.create("table.action.entry.find.output.entry.cell.column", "entryCellColumn"),
+        OutputComponentVariable.create("table.action.entry.find.output.entry.cell.value", "entryCellValue")))
+      .withOutputVariable(OutputComponentVariable.create("table.action.entry.find.output.entry.cells.number", "entryCellsNumber"))
       .withOutputVariable(OutputComponentVariable.create("table.action.entry.find.output.table", "tableName"))
       .withOutputVariable(OutputComponentVariable.create("table.action.entry.find.output.column", "entryColumn"))
       .withOutputVariable(OutputComponentVariable.create("table.action.entry.find.output.value", "entryValue"))

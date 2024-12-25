@@ -9,8 +9,11 @@ import com.dulno.core.workflow.placeholder.PlaceholderDissolve;
 import com.dulno.table.structure.Table;
 import com.dulno.table.structure.TableDatabaseTable;
 import com.dulno.table.structure.TableFactory;
+import com.google.common.collect.Lists;
 import lombok.AllArgsConstructor;
+import org.json.JSONArray;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -62,27 +65,28 @@ public final class TableFindEntryActionExecutor implements ActionExecutor {
     }
     return table.selectRow(condition).thenApply(row ->
       ActionResult.success(buildInformation(table, row.findCell(1).uuidValue(),
-        parseRowContent(table, row))));
+        createCells(table, row))));
   }
 
-  private String parseRowContent(Table table, DatabaseRow row) {
+  private List<Map<String, Object>> createCells(
+    Table table, DatabaseRow row
+  ) {
+    var cells = Lists.<Map<String, Object>>newArrayList();
     var columns = table.columns();
-    var content = new StringBuilder();
     for (var i = 2; i < columns.size(); i++) {
-      content.append(columns.get(i).name());
-      content.append("=");
-      content.append(row.findCell(i).rawValue());
-      if (i < columns.size() - 1) {
-        content.append(",");
-      }
+      cells.add(Map.of("entryCellColumn", columns.get(i).name().toLowerCase(),
+        "entryCellValue", row.findCell(i).rawValue()));
     }
-    return content.toString();
+    return cells;
   }
 
-  private Map<String, Object> buildInformation(Table table, UUID id, String row) {
+  private Map<String, Object> buildInformation(
+    Table table, UUID id, List<Map<String, Object>> cells
+  ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("entryId", id);
-    information.put("entryContent", row);
+    information.put("entryCells", new JSONArray(cells));
+    information.put("entryCellsNumber", cells.size());
     information.put("tableName", table.name());
     information.put("entryColumn", entryColumn);
     information.put("entryValue", entryValue);
