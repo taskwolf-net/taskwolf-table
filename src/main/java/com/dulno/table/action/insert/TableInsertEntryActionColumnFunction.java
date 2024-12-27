@@ -2,9 +2,9 @@ package com.dulno.table.action.insert;
 
 import com.dulno.core.database.DatabaseColumn;
 import com.dulno.core.user.User;
-import com.dulno.core.workflow.component.input.DynamicInputComponentVariableFunction;
-import com.dulno.core.workflow.component.input.InputComponentDataType;
-import com.dulno.core.workflow.component.input.InputComponentVariable;
+import com.dulno.workflow.component.input.DynamicInputComponentVariableFunction;
+import com.dulno.workflow.component.input.InputComponentDataType;
+import com.dulno.workflow.component.input.InputComponentVariable;
 import com.dulno.table.structure.TableDatabaseTable;
 import com.dulno.table.structure.TableEntry;
 import com.dulno.table.structure.TableFactory;

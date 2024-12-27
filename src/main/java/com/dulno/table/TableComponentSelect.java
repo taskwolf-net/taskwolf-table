@@ -3,8 +3,8 @@ package com.dulno.table;
 import com.dulno.table.structure.TableDatabaseTable;
 import lombok.RequiredArgsConstructor;
 import com.dulno.core.user.User;
-import com.dulno.core.workflow.component.input.InputComponentSelect;
-import com.dulno.core.workflow.component.input.InputComponentSelectEntry;
+import com.dulno.workflow.component.input.InputComponentSelect;
+import com.dulno.workflow.component.input.InputComponentSelectEntry;
 
 import java.util.List;
 import java.util.Map;

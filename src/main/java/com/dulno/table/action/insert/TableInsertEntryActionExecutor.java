@@ -5,10 +5,10 @@ import com.dulno.core.error.ErrorRepository;
 import com.dulno.table.structure.*;
 import com.google.common.collect.Lists;
 import lombok.AllArgsConstructor;
-import com.dulno.core.action.ActionExecutor;
-import com.dulno.core.action.ActionResult;
+import com.dulno.workflow.action.ActionExecutor;
+import com.dulno.workflow.action.ActionResult;
 import com.dulno.core.database.DatabaseColumn;
-import com.dulno.core.workflow.placeholder.PlaceholderDissolve;
+import com.dulno.workflow.placeholder.PlaceholderDissolve;
 import org.json.JSONObject;
 
 import java.util.List;
