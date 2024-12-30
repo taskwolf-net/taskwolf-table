@@ -2,6 +2,7 @@ package com.dulno.table.action.remove;
 
 import com.datastax.oss.driver.shaded.guava.common.collect.Maps;
 import com.dulno.table.structure.Table;
+import com.dulno.table.structure.TableEntry;
 import com.dulno.table.structure.TableFactory;
 import lombok.AllArgsConstructor;
 import com.dulno.workflow.action.ActionExecutor;
@@ -17,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
 public final class TableRemoveEntryActionExecutor implements ActionExecutor {
   private final TableDatabaseTable tableDatabaseTable;
   private final TableFactory tableFactory;
+  private final UUID ownerId;
   private final String tableIdentifier;
   private String entryIdentifier;
 
@@ -32,9 +34,18 @@ public final class TableRemoveEntryActionExecutor implements ActionExecutor {
     if (!tableExists) {
       return ActionResult.futureFailure("table.action.entry.remove.failure.table.not.found");
     }
-    return tableDatabaseTable.findTable(tableIdentifier).thenCompose(tableEntry ->
-      tableFactory.create(tableEntry).thenCompose(table ->
-        execute(information, table)));
+    return tableDatabaseTable.findTable(tableIdentifier)
+      .thenCompose(tableEntry -> execute(information, tableEntry));
+  }
+
+  private CompletableFuture<ActionResult> execute(
+    Map<String, Object> information, TableEntry tableEntry
+  ) {
+    if (!tableEntry.owner().equals(ownerId)) {
+      return ActionResult.futureFailure("table.action.entry.remove.failure.table.permission");
+    }
+    return tableFactory.create(tableEntry)
+      .thenCompose(table -> execute(information, table));
   }
 
   private CompletableFuture<ActionResult> execute(

@@ -29,6 +29,7 @@ public final class TableInsertEntryAction implements Action<TableInsertEntryActi
     DatabaseKeyspace databaseKeyspace
   ) {
     var contentColumns = Lists.<DatabaseColumn>newArrayList();
+    contentColumns.add(DatabaseColumn.create("ownerId", DatabaseDataType.UUID));
     contentColumns.add(DatabaseColumn.create("tableId", DatabaseDataType.TEXT));
     contentColumns.add(DatabaseColumn.create("content", DatabaseDataType.TEXT));
     return new TableInsertEntryAction(tableComponentSelect, tableDatabaseTable,
@@ -69,8 +70,11 @@ public final class TableInsertEntryAction implements Action<TableInsertEntryActi
   }
 
   @Override
-  public CompletableFuture<Void> insert(UUID actionId, Map<String, Object> content) {
-    return contentDatabaseTable.insertContent(actionId, encodeContent(content));
+  public CompletableFuture<Void> insert(
+    UUID actionId, UUID ownerId, Map<String, Object> content
+  ) {
+    return contentDatabaseTable.insertContent(actionId, DatabaseRow.of(ownerId)
+      .concat(encodeContent(content)));
   }
 
   private DatabaseRow encodeContent(Map<String, Object> content) {
@@ -91,8 +95,8 @@ public final class TableInsertEntryAction implements Action<TableInsertEntryActi
 
   private Map<String, Object> decodeContent(DatabaseRow row) {
     var content = Maps.<String, Object>newHashMap();
-    content.put("tableIdentifier", row.findCell(1).stringValue());
-    var entryContent = new JSONObject(row.findCell(2).stringValue());
+    content.put("tableIdentifier", row.findCell(2).stringValue());
+    var entryContent = new JSONObject(row.findCell(3).stringValue());
     for (var entry : entryContent.keySet()) {
       content.put("column_" + entry, entryContent.getString(entry));
     }
@@ -103,8 +107,8 @@ public final class TableInsertEntryAction implements Action<TableInsertEntryActi
   public CompletableFuture<TableInsertEntryActionExecutor> build(UUID actionId) {
     return contentDatabaseTable.findContent(actionId).thenApply(content ->
       TableInsertEntryActionExecutor.create(tableDatabaseTable, tableFactory,
-        errorRepository, content.findCell(1).stringValue(),
-        content.findCell(2).stringValue()));
+        errorRepository, content.findCell(1).uuidValue(),
+        content.findCell(2).stringValue(), content.findCell(3).stringValue()));
   }
 
   @Override

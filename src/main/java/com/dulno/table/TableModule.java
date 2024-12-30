@@ -73,11 +73,12 @@ public final class TableModule extends Integration {
   public TriggerRepository triggerRepository() {
     var databaseConnection = injector().getInstance(DatabaseConnection.class);
     var databaseKeyspace = injector().getInstance(DatabaseKeyspace.class);
+    var tableDatabaseTable = injector().getInstance(TableDatabaseTable.class);
     var repository = TriggerRepository.create();
-    repository.registerTrigger(TableInsertEntryTrigger.create(tableComponentSelect,
-      databaseConnection, databaseKeyspace));
-    repository.registerTrigger(TableRemoveEntryTrigger.create(tableComponentSelect,
-      databaseConnection, databaseKeyspace));
+    repository.registerTrigger(TableInsertEntryTrigger.create(tableDatabaseTable,
+      tableComponentSelect, databaseConnection, databaseKeyspace));
+    repository.registerTrigger(TableRemoveEntryTrigger.create(tableDatabaseTable,
+      tableComponentSelect, databaseConnection, databaseKeyspace));
     return repository;
   }
 

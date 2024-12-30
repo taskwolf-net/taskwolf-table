@@ -1,5 +1,6 @@
 package com.dulno.table.trigger.insert;
 
+import com.dulno.table.structure.TableDatabaseTable;
 import com.google.common.collect.Lists;
 import lombok.RequiredArgsConstructor;
 import com.dulno.core.database.*;
@@ -19,16 +20,18 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor(staticName = "create")
 public final class TableInsertEntryTrigger implements Trigger {
   public static TableInsertEntryTrigger create(
-    InputComponentSelect tableComponentSelect,
+    TableDatabaseTable tableDatabaseTable, InputComponentSelect tableComponentSelect,
     DatabaseConnection databaseConnection, DatabaseKeyspace databaseKeyspace
   ) {
     var contentColumns = Lists.<DatabaseColumn>newArrayList();
+    contentColumns.add(DatabaseColumn.create("ownerId", DatabaseDataType.UUID));
     contentColumns.add(DatabaseColumn.create("tableId", DatabaseDataType.TEXT));
-    return new TableInsertEntryTrigger(tableComponentSelect,
+    return new TableInsertEntryTrigger(tableDatabaseTable, tableComponentSelect,
       TriggerContentDatabaseTable.create(databaseConnection, databaseKeyspace,
         "trigger_database_entry_insert", contentColumns));
   }
 
+  private final TableDatabaseTable tableDatabaseTable;
   private final InputComponentSelect tableComponentSelect;
   private final TriggerContentDatabaseTable contentDatabaseTable;
 
@@ -56,15 +59,36 @@ public final class TableInsertEntryTrigger implements Trigger {
   }
 
   @Override
-  public CompletableFuture<Void> insert(UUID triggerId, Map<String, Object> content) {
-    return contentDatabaseTable.insertContent(triggerId, DatabaseRow.of(
+  public CompletableFuture<Void> insert(
+    UUID triggerId, UUID ownerId, Map<String, Object> content
+  ) {
+    return contentDatabaseTable.insertContent(triggerId, DatabaseRow.of(ownerId,
       content.get("tableIdentifier")));
+  }
+
+  @Override
+  public CompletableFuture<Boolean> checkExecution(UUID triggerId) {
+    return contentDatabaseTable.findContent(triggerId)
+      .thenCompose(row -> tableDatabaseTable.tableExists(
+        row.findCell(2).stringValue())
+        .thenCompose(exists -> checkExecution(row.findCell(1).uuidValue(),
+          row.findCell(2).stringValue(), exists)));
+  }
+
+  public CompletableFuture<Boolean> checkExecution(
+    UUID ownerId, String tableId, boolean tableExists
+  ) {
+    if (!tableExists) {
+      return CompletableFuture.completedFuture(false);
+    }
+    return tableDatabaseTable.findTable(tableId)
+      .thenApply(table -> table.owner().equals(ownerId));
   }
 
   @Override
   public CompletableFuture<Map<String, Object>> findContent(UUID triggerId) {
     return contentDatabaseTable.findContent(triggerId).thenApply(row ->
-      Map.of("tableIdentifier", row.findCell(1).stringValue()));
+      Map.of("tableIdentifier", row.findCell(2).stringValue()));
   }
 
   @Override

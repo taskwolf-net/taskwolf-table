@@ -7,6 +7,7 @@
   "table.trigger.entry.insert.input.table.description": "Die Datenbank, in der die Einfügungen beobachtet werden sollen",
   "table.trigger.entry.insert.output.table": "Datenbank Name",
   "table.trigger.entry.insert.output.entry.id": "Entry ID",
+
   "table.trigger.entry.remove.name": "Entfernung von Datenbankeinträgen",
   "table.trigger.entry.remove.description": "Entfernung von Datenbankeinträgen",
   "table.trigger.entry.remove.input.table.name": "Datenbank",
@@ -24,6 +25,7 @@
   "table.action.entry.insert.output.table": "Datenbank Name",
   "table.action.entry.insert.output.entry.id": "Eintrags ID",
   "table.action.entry.insert.failure.table.not.found": "Beim Einfügen eines Eintrags in eine Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Datenbank nicht gefunden werden konnte.",
+  "table.action.entry.insert.failure.table.permission": "Beim Einfügen eines Eintrags in eine Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil Sie keinen Zugriff auf die ausgewählte Datenbank haben.",
   "table.action.entry.insert.failure.data.limit.reached": "Beim Einfügen eines Eintrags in eine Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil die maximale Datengröße erreicht wurde. Es können keine weiteren Daten in einer Datenbank gespeichert werden. Sie können Ihr Paket jederzeit aktualisieren, um zusätzlichen Speicherplatz zu erhalten.",
 
   "table.action.entry.remove.name": "Datenbankeintrag entfernen",
@@ -34,6 +36,7 @@
   "table.action.entry.remove.input.entry.description": "Die ID des Eintrags / der Zeile, die Sie entfernen möchten",
   "table.action.entry.remove.output.table": "Datenbank Name",
   "table.action.entry.remove.failure.table.not.found": "Beim Entfernen eines Eintrags aus einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Datenbank nicht gefunden werden konnte.",
+  "table.action.entry.remove.failure.table.permission": "Beim Entfernen eines Eintrags aus einer Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil Sie keinen Zugriff auf die ausgewählte Datenbank haben.",
   "table.action.entry.remove.failure.entry.wrong.format": "Beim Entfernen eines Eintrags aus einer Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil die ID des Eintrags das falsche Format hat.",
   "table.action.entry.remove.failure.entry.not.found": "Beim Entfernen eines Eintrags aus einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil der ausgewählte Eintrag / die ausgewählte Zeile nicht gefunden werden konnte.",
 
@@ -50,6 +53,7 @@
   "table.action.check.entry.existence.output.column": "Spalten Name",
   "table.action.check.entry.existence.output.value": "Spalten Wert",
   "table.action.check.entry.existence.failure.table.not.found": "Bei der Überprüfung des Vorhandenseins eines Eintrags in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Datenbank nicht gefunden werden konnte.",
+  "table.action.check.entry.existence.failure.table.permission": "Bei der Überprüfung des Vorhandenseins eines Eintrags in einer Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil Sie keinen Zugriff auf die ausgewählte Datenbank haben.",
   "table.action.check.entry.existence.failure.column.not.found": "Bei der Überprüfung des Vorhandenseins eines Eintrags in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Spalte nicht gefunden werden konnte.",
 
   "table.action.entry.find.name": "Eintrag finden",
@@ -69,6 +73,7 @@
   "table.action.entry.find.output.column": "Spalten Name",
   "table.action.entry.find.output.value": "Spalten Wert",
   "table.action.entry.find.failure.table.not.found": "Bei der Suche nach einem Eintrag in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Datenbank nicht gefunden werden konnte.",
+  "table.action.entry.find.failure.table.permission": "Bei der Suche nach einem Eintrag in einer Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil Sie keinen Zugriff auf die ausgewählte Datenbank haben.",
   "table.action.entry.find.failure.column.not.found": "Bei der Suche nach einem Eintrag in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Spalte nicht gefunden werden konnte.",
   "table.action.entry.find.failure.entry.not.found": "Bei der Suche nach einem Eintrag in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil kein Eintrag gefunden werden konnte, der die Eigenschaften erfüllt.",
 
@@ -88,5 +93,6 @@
   "table.action.entries.find.output.column": "Spalten Name",
   "table.action.entries.find.output.value": "Spalten Wert",
   "table.action.entries.find.failure.table.not.found": "Bei der Suche nach einigen Einträgen in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Datenbank nicht gefunden werden konnte.",
-  "table.action.entries.find.failure.column.not.found": "Bei der Suche nach einigen Einträgen in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Spalte nicht gefunden werden konnte.",
+  "table.action.entries.find.failure.table.permission": "Bei der Suche nach einigen Einträgen in einer Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil Sie keinen Zugriff auf die ausgewählte Datenbank haben.",
+  "table.action.entries.find.failure.column.not.found": "Bei der Suche nach einigen Einträgen in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Spalte nicht gefunden werden konnte."
 }

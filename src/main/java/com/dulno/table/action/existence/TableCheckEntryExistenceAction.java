@@ -25,6 +25,7 @@ public final class TableCheckEntryExistenceAction implements Action<TableCheckEn
     DatabaseConnection databaseConnection, DatabaseKeyspace databaseKeyspace
   ) {
     var contentColumns = Lists.<DatabaseColumn>newArrayList();
+    contentColumns.add(DatabaseColumn.create("ownerId", DatabaseDataType.UUID));
     contentColumns.add(DatabaseColumn.create("tableId", DatabaseDataType.TEXT));
     contentColumns.add(DatabaseColumn.create("column", DatabaseDataType.TEXT));
     contentColumns.add(DatabaseColumn.create("value", DatabaseDataType.TEXT));
@@ -67,8 +68,10 @@ public final class TableCheckEntryExistenceAction implements Action<TableCheckEn
   }
 
   @Override
-  public CompletableFuture<Void> insert(UUID actionId, Map<String, Object> content) {
-    return contentDatabaseTable.insertContent(actionId, DatabaseRow.of(
+  public CompletableFuture<Void> insert(
+    UUID actionId, UUID ownerId, Map<String, Object> content
+  ) {
+    return contentDatabaseTable.insertContent(actionId, DatabaseRow.of(ownerId,
       content.get("tableIdentifier"), content.get("entryColumn"),
       content.get("entryValue")));
   }
@@ -76,17 +79,17 @@ public final class TableCheckEntryExistenceAction implements Action<TableCheckEn
   @Override
   public CompletableFuture<Map<String, Object>> findContent(UUID triggerId) {
     return contentDatabaseTable.findContent(triggerId).thenApply(row ->
-      Map.of("tableIdentifier", row.findCell(1).stringValue(),
-        "entryColumn", row.findCell(2).stringValue(),
-        "entryValue", row.findCell(3).stringValue()));
+      Map.of("tableIdentifier", row.findCell(2).stringValue(),
+        "entryColumn", row.findCell(3).stringValue(),
+        "entryValue", row.findCell(4).stringValue()));
   }
 
   @Override
   public CompletableFuture<TableCheckEntryExistenceActionExecutor> build(UUID actionId) {
     return contentDatabaseTable.findContent(actionId).thenApply(content ->
       TableCheckEntryExistenceActionExecutor.create(tableDatabaseTable, tableFactory,
-        content.findCell(1).stringValue(), content.findCell(2).stringValue(),
-        content.findCell(3).stringValue()));
+        content.findCell(1).uuidValue(), content.findCell(2).stringValue(),
+        content.findCell(3).stringValue(), content.findCell(4).stringValue()));
   }
 
   @Override

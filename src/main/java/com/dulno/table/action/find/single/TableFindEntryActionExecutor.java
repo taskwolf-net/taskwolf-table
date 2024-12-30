@@ -1,6 +1,7 @@
 package com.dulno.table.action.find.single;
 
 import com.datastax.oss.driver.shaded.guava.common.collect.Maps;
+import com.dulno.table.structure.TableEntry;
 import com.dulno.workflow.action.ActionExecutor;
 import com.dulno.workflow.action.ActionResult;
 import com.dulno.core.database.DatabaseRow;
@@ -22,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 public final class TableFindEntryActionExecutor implements ActionExecutor {
   private final TableDatabaseTable tableDatabaseTable;
   private final TableFactory tableFactory;
+  private final UUID ownerId;
   private final String tableIdentifier;
   private String entryColumn;
   private String entryValue;
@@ -39,8 +41,17 @@ public final class TableFindEntryActionExecutor implements ActionExecutor {
       return ActionResult.futureFailure("table.action.entry.find.failure.table.not.found");
     }
     return tableDatabaseTable.findTable(tableIdentifier)
-      .thenCompose(tableEntry -> tableFactory.create(tableEntry)
-        .thenCompose(table -> execute(information, table)));
+      .thenCompose(tableEntry -> execute(information, tableEntry));
+  }
+
+  private CompletableFuture<ActionResult> execute(
+    Map<String, Object> information, TableEntry tableEntry
+  ) {
+    if (!tableEntry.owner().equals(ownerId)) {
+      return ActionResult.futureFailure("table.action.entry.find.failure.table.permission");
+    }
+    return tableFactory.create(tableEntry)
+      .thenCompose(table -> execute(information, table));
   }
 
   private CompletableFuture<ActionResult> execute(

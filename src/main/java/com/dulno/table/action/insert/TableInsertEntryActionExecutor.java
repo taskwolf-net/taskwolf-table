@@ -21,6 +21,7 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
   private final TableDatabaseTable tableDatabaseTable;
   private final TableFactory tableFactory;
   private final ErrorRepository errorRepository;
+  private final UUID ownerId;
   private final String tableIdentifier;
   private String entryContent;
 
@@ -36,10 +37,19 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
     if (!tableExists) {
       return ActionResult.futureFailure("table.action.entry.insert.failure.table.not.found");
     }
-    return tableDatabaseTable.findTable(tableIdentifier).thenCompose(tableEntry ->
-      tableFactory.create(tableEntry).thenCompose(table ->
-        table.generateAvailableContentId().thenCompose(contentId ->
-          execute(information, tableEntry, table, contentId))));
+    return tableDatabaseTable.findTable(tableIdentifier)
+      .thenCompose(tableEntry -> execute(information, tableEntry));
+  }
+
+  private CompletableFuture<ActionResult> execute(
+    Map<String, Object> information, TableEntry tableEntry
+  ) {
+    if (!tableEntry.owner().equals(ownerId)) {
+      return ActionResult.futureFailure("table.action.entry.insert.failure.table.permission");
+    }
+    return tableFactory.create(tableEntry)
+      .thenCompose(table -> table.generateAvailableContentId()
+        .thenCompose(contentId -> execute(information, tableEntry, table, contentId)));
   }
 
   private CompletableFuture<ActionResult> execute(

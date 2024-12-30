@@ -7,6 +7,7 @@
   "table.trigger.entry.insert.input.table.description": "The database in which the insertions are to be observed",
   "table.trigger.entry.insert.output.table": "Database name",
   "table.trigger.entry.insert.output.entry.id": "Entry ID",
+
   "table.trigger.entry.remove.name": "Database entry removal",
   "table.trigger.entry.remove.description": "Database entry removal",
   "table.trigger.entry.remove.input.table.name": "Database",
@@ -24,6 +25,7 @@
   "table.action.entry.insert.output.table": "Database name",
   "table.action.entry.insert.output.entry.id": "Entry ID",
   "table.action.entry.insert.failure.table.not.found": "An error occurred while inserting an entry into a database. The error occurred because the selected database could not be found.",
+  "table.action.entry.insert.failure.table.permission": "An error occurred while inserting an entry into a database. The error has occurred because you do not have access to the selected database.",
   "table.action.entry.insert.failure.data.limit.reached": "An error occurred while inserting an entry into a database. The error has occurred because the maximum data size has been reached. No further data can be saved in a database. You can upgrade your package at any time to get additional storage.",
 
   "table.action.entry.remove.name": "Remove database entry",
@@ -34,6 +36,7 @@
   "table.action.entry.remove.input.entry.description": "The id of the entry / row you want to remove",
   "table.action.entry.remove.output.table": "Database name",
   "table.action.entry.remove.failure.table.not.found": "An error occurred while removing an entry from a database. The error occurred because the selected database could not be found.",
+  "table.action.entry.remove.failure.table.permission": "An error occurred while removing an entry from a database. The error has occurred because you do not have access to the selected database.",
   "table.action.entry.remove.failure.entry.wrong.format": "An error occurred while removing an entry from a database. The error occurred because the id of the entry has the wrong format.",
   "table.action.entry.remove.failure.entry.not.found": "An error occurred while removing an entry from a database. The error occurred because the selected entry / row could not be found.",
 
@@ -50,6 +53,7 @@
   "table.action.check.entry.existence.output.column": "Column name",
   "table.action.check.entry.existence.output.value": "Column value",
   "table.action.check.entry.existence.failure.table.not.found": "An error occurred while checking the existence of an entry from a database. The error occurred because the selected database could not be found.",
+  "table.action.check.entry.existence.failure.table.permission": "An error occurred while checking the existence of an entry from a database. The error has occurred because you do not have access to the selected database.",
   "table.action.check.entry.existence.failure.column.not.found": "An error occurred while checking the existence of an entry from a database. The error occurred because the selected column could not be found.",
 
   "table.action.entry.find.name": "Find entry",
@@ -69,6 +73,7 @@
   "table.action.entry.find.output.column": "Column name",
   "table.action.entry.find.output.value": "Column value",
   "table.action.entry.find.failure.table.not.found": "An error occurred while finding an entry from a database. The error occurred because the selected database could not be found.",
+  "table.action.entry.find.failure.table.permission": "An error occurred while finding an entry from a database. The error has occurred because you do not have access to the selected database.",
   "table.action.entry.find.failure.column.not.found": "An error occurred while finding an entry from a database. The error occurred because the selected column could not be found.",
   "table.action.entry.find.failure.entry.not.found": "An error occurred while finding an entry from a database. The error occurred because no entry could be found that fulfills the properties.",
 
@@ -88,5 +93,6 @@
   "table.action.entries.find.output.column": "Column name",
   "table.action.entries.find.output.value": "Column value",
   "table.action.entries.find.failure.table.not.found": "An error occurred while finding some entries from a database. The error occurred because the selected database could not be found.",
-  "table.action.entries.find.failure.column.not.found": "An error occurred while finding some entries from a database. The error occurred because the selected column could not be found.",
+  "table.action.entries.find.failure.table.permission": "An error occurred while finding some entries from a database. The error has occurred because you do not have access to the selected database.",
+  "table.action.entries.find.failure.column.not.found": "An error occurred while finding some entries from a database. The error occurred because the selected column could not be found."
 }
