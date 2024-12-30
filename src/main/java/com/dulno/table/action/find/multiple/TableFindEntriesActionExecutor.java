@@ -4,13 +4,11 @@ import com.datastax.oss.driver.shaded.guava.common.collect.Maps;
 import com.dulno.table.structure.TableEntry;
 import com.dulno.workflow.action.ActionExecutor;
 import com.dulno.workflow.action.ActionResult;
-import com.dulno.core.database.DatabaseRow;
 import com.dulno.core.database.condition.DatabaseCondition;
 import com.dulno.workflow.placeholder.PlaceholderDissolve;
 import com.dulno.table.structure.Table;
 import com.dulno.table.structure.TableDatabaseTable;
 import com.dulno.table.structure.TableFactory;
-import com.google.common.collect.Lists;
 import lombok.AllArgsConstructor;
 import org.json.JSONArray;
 
@@ -69,31 +67,8 @@ public final class TableFindEntriesActionExecutor implements ActionExecutor {
     return table.selectRows(condition, ENTRY_LIMIT)
       .thenApply(rows -> ActionResult.success(buildInformation(table,
         rows.stream()
-          .map(row -> buildRowInformation(row.findCell(1).uuidValue(),
-            createCells(table, row)))
+          .map(row -> Map.of("entryId", (Object) row.findCell(1).uuidValue()))
           .toList())));
-  }
-
-  private List<Map<String, Object>> createCells(
-    Table table, DatabaseRow row
-  ) {
-    var cells = Lists.<Map<String, Object>>newArrayList();
-    var columns = table.columns();
-    for (var i = 2; i < columns.size(); i++) {
-      cells.add(Map.of("entryCellColumn", columns.get(i).name().toLowerCase(),
-        "entryCellValue", row.findCell(i).rawValue()));
-    }
-    return cells;
-  }
-
-  private Map<String, Object> buildRowInformation(
-    UUID id, List<Map<String, Object>> cells
-  ) {
-    var information = Maps.<String, Object>newHashMap();
-    information.put("entryId", id);
-    information.put("entryCells", new JSONArray(cells));
-    information.put("entryCellsNumber", cells.size());
-    return information;
   }
 
   private Map<String, Object> buildInformation(

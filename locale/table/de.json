@@ -88,7 +88,6 @@
   "table.action.entries.find.output.entries": "Einträge",
   "table.action.entries.find.output.entries.number": "Anzahl der Einträge",
   "table.action.entries.find.output.entry.id": "Eintrags ID",
-  "table.action.entries.find.output.entry.content": "Eintrags Inhalt",
   "table.action.entries.find.output.table": "Datenbank Name",
   "table.action.entries.find.output.column": "Spalten Name",
   "table.action.entries.find.output.value": "Spalten Wert",
