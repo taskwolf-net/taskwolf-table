@@ -60,12 +60,19 @@ public final class TableFindEntryActionExecutor implements ActionExecutor {
     var placeholderDissolve = PlaceholderDissolve.create(information);
     entryColumn = placeholderDissolve.dissolve(entryColumn);
     entryValue = placeholderDissolve.dissolve(entryValue);
-    if (table.columns().stream().noneMatch(column -> column.name().equals(entryColumn))) {
+    if (table.columns().stream().noneMatch(column -> column.name().equals(entryColumn)) ||
+      entryColumn.equalsIgnoreCase("owner")
+    ) {
       return ActionResult.futureFailure("table.action.entry.find.failure.column.not.found");
     }
-    var condition = DatabaseCondition.of(entryColumn, entryValue);
-    return table.exists(condition).thenCompose(exists ->
-      execute(table, condition, exists));
+    try {
+      var condition = DatabaseCondition.of(entryColumn,
+        entryColumn.equalsIgnoreCase("id") ? UUID.fromString(entryValue) : entryValue);
+      return table.exists(condition).thenCompose(exists ->
+        execute(table, condition, exists));
+    } catch (Exception exception) {
+      return ActionResult.futureFailure("table.action.entry.find.failure.entry.not.found");
+    }
   }
 
   private CompletableFuture<ActionResult> execute(
