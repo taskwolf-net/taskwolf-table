@@ -6,7 +6,7 @@
   "table.trigger.entry.insert.input.table.name": "Datenbank",
   "table.trigger.entry.insert.input.table.description": "Die Datenbank, in der die Einfügungen beobachtet werden sollen",
   "table.trigger.entry.insert.output.table": "Datenbank Name",
-  "table.trigger.entry.insert.output.entry.id": "Entry ID",
+  "table.trigger.entry.insert.output.entry.id": "Eintrags ID",
 
   "table.trigger.entry.remove.name": "Entfernung von Datenbankeinträgen",
   "table.trigger.entry.remove.description": "Entfernung von Datenbankeinträgen",
@@ -48,7 +48,7 @@
   "table.action.check.entry.existence.input.column.description": "Die zu untersuchende Spalte",
   "table.action.check.entry.existence.input.value.name": "Wert",
   "table.action.check.entry.existence.input.value.description": "Der Wert, den die Spalte annehmen soll",
-  "table.action.check.entry.existence.output.exists": "Entry exists",
+  "table.action.check.entry.existence.output.exists": "Eintrag existiert",
   "table.action.check.entry.existence.output.table": "Datenbank Name",
   "table.action.check.entry.existence.output.column": "Spalten Name",
   "table.action.check.entry.existence.output.value": "Spalten Wert",
