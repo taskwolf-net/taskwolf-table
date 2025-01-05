@@ -39,7 +39,7 @@ public class TableInjectionModule extends AbstractModule {
     @Named("tableConnection") DatabaseConnection connection
   ) {
     var tableKeyspace = DatabaseKeyspace.create(connection, "dulno_user_table",
-      "SimpleStrategy", 1);
+      "SimpleStrategy", 2);
     tableKeyspace.createIfNotExists();
     tableKeyspace.use();
     return tableKeyspace;
