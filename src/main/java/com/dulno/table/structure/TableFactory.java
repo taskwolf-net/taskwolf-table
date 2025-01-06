@@ -24,6 +24,7 @@ public final class TableFactory {
   private final TeamDatabaseTable teamDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final TableDatabaseTable tableDatabaseTable;
+  private final TableUsageDatabaseTable tableUsageDatabaseTable;
   private final TableSizeDatabaseTable tableSizeDatabaseTable;
   private final ErrorRepository errorRepository;
 
@@ -35,6 +36,7 @@ public final class TableFactory {
     OrganizationDatabaseTable organizationDatabaseTable,
     TeamDatabaseTable teamDatabaseTable, BundleDatabaseTable bundleDatabaseTable,
     TableDatabaseTable tableDatabaseTable,
+    TableUsageDatabaseTable tableUsageDatabaseTable,
     TableSizeDatabaseTable tableSizeDatabaseTable, ErrorRepository errorRepository
   ) {
     this.tableConnection = tableConnection;
@@ -44,6 +46,7 @@ public final class TableFactory {
     this.teamDatabaseTable = teamDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.tableDatabaseTable = tableDatabaseTable;
+    this.tableUsageDatabaseTable = tableUsageDatabaseTable;
     this.tableSizeDatabaseTable = tableSizeDatabaseTable;
     this.errorRepository = errorRepository;
   }
@@ -51,12 +54,14 @@ public final class TableFactory {
   public CompletableFuture<Table> create(TableEntry entry) {
     return Table.create(tableConnection, tableKeyspace, userDatabaseTable,
       organizationDatabaseTable, teamDatabaseTable, bundleDatabaseTable,
-      tableDatabaseTable, tableSizeDatabaseTable, errorRepository, entry);
+      tableDatabaseTable, tableUsageDatabaseTable, tableSizeDatabaseTable,
+      errorRepository, entry);
   }
 
   public Table create(TableEntry entry, List<DatabaseColumn> columns) {
     return Table.create(tableConnection, tableKeyspace, userDatabaseTable,
       organizationDatabaseTable, teamDatabaseTable, bundleDatabaseTable,
-      tableDatabaseTable, tableSizeDatabaseTable, errorRepository, columns, entry);
+      tableDatabaseTable, tableUsageDatabaseTable, tableSizeDatabaseTable,
+      errorRepository, columns, entry);
   }
 }

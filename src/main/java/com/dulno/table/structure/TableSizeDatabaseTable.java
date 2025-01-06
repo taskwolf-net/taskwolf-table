@@ -4,7 +4,6 @@ import com.google.common.collect.Lists;
 import com.dulno.core.database.*;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public final class TableSizeDatabaseTable extends DatabaseTable {
@@ -14,7 +13,7 @@ public final class TableSizeDatabaseTable extends DatabaseTable {
     DatabaseConnection connection, DatabaseKeyspace keyspace
   ) {
     var columns = Lists.<DatabaseColumn>newArrayList();
-    columns.add(DatabaseColumn.create("target", DatabaseDataType.UUID,
+    columns.add(DatabaseColumn.create("tableId", DatabaseDataType.TEXT,
       DatabaseColumn.Type.PRIMARY_KEY));
     columns.add(DatabaseColumn.create("size", DatabaseDataType.COUNTER));
     return new TableSizeDatabaseTable(connection, keyspace, TABLE_NAME, columns);
@@ -28,21 +27,21 @@ public final class TableSizeDatabaseTable extends DatabaseTable {
   }
 
   public CompletableFuture<Void> updateSize(
-    UUID targetId, long sizeAddition
+    String tableId, long sizeAddition
   ) {
-    return updateCounter(targetId, DatabaseRow.of(targetId, sizeAddition));
+    return updateCounter(tableId, DatabaseRow.of(tableId, sizeAddition));
   }
 
-  public CompletableFuture<Void> deleteSize(UUID targetId) {
-    return delete(targetId);
+  public CompletableFuture<Void> deleteSize(String tableId) {
+    return delete(tableId);
   }
 
-  public CompletableFuture<Boolean> sizeExists(UUID targetId) {
-    return exists(targetId);
+  public CompletableFuture<Boolean> sizeExists(String tableId) {
+    return exists(tableId);
   }
 
-  public CompletableFuture<Long> findSize(UUID targetId) {
-    return selectRowSecure(targetId)
+  public CompletableFuture<Long> findSize(String tableId) {
+    return selectRowSecure(tableId)
       .thenApply(result -> result.map(row -> row.findCell(1).longValue()).orElse(0L));
   }
 }

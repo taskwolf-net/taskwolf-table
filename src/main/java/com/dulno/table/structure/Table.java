@@ -26,13 +26,14 @@ public final class Table extends DatabaseTable {
     OrganizationDatabaseTable organizationDatabaseTable,
     TeamDatabaseTable teamDatabaseTable, BundleDatabaseTable bundleDatabaseTable,
     TableDatabaseTable tableDatabaseTable,
+    TableUsageDatabaseTable tableUsageDatabaseTable,
     TableSizeDatabaseTable tableSizeDatabaseTable, ErrorRepository errorRepository,
     TableEntry entry
   ) {
     var table = new Table(connection, keyspace, entry.id(), Lists.newArrayList(),
       userDatabaseTable, organizationDatabaseTable, teamDatabaseTable,
-      bundleDatabaseTable, tableDatabaseTable, tableSizeDatabaseTable,
-      errorRepository, entry);
+      bundleDatabaseTable, tableDatabaseTable, tableUsageDatabaseTable,
+      tableSizeDatabaseTable, errorRepository, entry);
     return table.findTableColumns().thenAccept(table::fillColumns)
       .thenApply(value -> table);
   }
@@ -43,13 +44,14 @@ public final class Table extends DatabaseTable {
     OrganizationDatabaseTable organizationDatabaseTable,
     TeamDatabaseTable teamDatabaseTable, BundleDatabaseTable bundleDatabaseTable,
     TableDatabaseTable tableDatabaseTable,
+    TableUsageDatabaseTable tableUsageDatabaseTable,
     TableSizeDatabaseTable tableSizeDatabaseTable, ErrorRepository errorRepository,
     List<DatabaseColumn> columns, TableEntry entry
   ) {
     return new Table(connection, keyspace, entry.id(), columns,
       userDatabaseTable, organizationDatabaseTable, teamDatabaseTable,
-      bundleDatabaseTable, tableDatabaseTable, tableSizeDatabaseTable,
-      errorRepository, entry);
+      bundleDatabaseTable, tableDatabaseTable, tableUsageDatabaseTable,
+      tableSizeDatabaseTable, errorRepository, entry);
   }
 
   private final UserDatabaseTable userDatabaseTable;
@@ -57,6 +59,7 @@ public final class Table extends DatabaseTable {
   private final TeamDatabaseTable teamDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final TableDatabaseTable tableDatabaseTable;
+  private final TableUsageDatabaseTable tableUsageDatabaseTable;
   private final TableSizeDatabaseTable tableSizeDatabaseTable;
   private final ErrorRepository errorRepository;
   private final TableEntry entry;
@@ -67,6 +70,7 @@ public final class Table extends DatabaseTable {
     OrganizationDatabaseTable organizationDatabaseTable,
     TeamDatabaseTable teamDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable, TableDatabaseTable tableDatabaseTable,
+    TableUsageDatabaseTable tableUsageDatabaseTable,
     TableSizeDatabaseTable tableSizeDatabaseTable, ErrorRepository errorRepository,
     TableEntry entry
   ) {
@@ -76,6 +80,7 @@ public final class Table extends DatabaseTable {
     this.teamDatabaseTable = teamDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.tableDatabaseTable = tableDatabaseTable;
+    this.tableUsageDatabaseTable = tableUsageDatabaseTable;
     this.tableSizeDatabaseTable = tableSizeDatabaseTable;
     this.errorRepository = errorRepository;
     this.entry = entry;
@@ -83,21 +88,18 @@ public final class Table extends DatabaseTable {
 
   public CompletableFuture<Boolean> insertContent(TableRow row) {
     var sizeAddition = row.size();
-    var totalSize = entry.size() + sizeAddition;
     return findTableBundleOwner().thenCompose(bundleOwner ->
       checkDatabaseSizeLimit(bundleOwner, sizeAddition).thenApply(limitReached ->
-        insertContent(row, bundleOwner, sizeAddition, totalSize, limitReached)));
+        insertContent(row, bundleOwner, sizeAddition, limitReached)));
   }
 
   private boolean insertContent(
-    TableRow row, UUID bundleOwner, long sizeAddition, long totalSize,
-    boolean limitReached
+    TableRow row, UUID bundleOwner, long sizeAddition, boolean limitReached
   ) {
     if (limitReached) {
       return false;
     }
-    tableSizeDatabaseTable.updateSize(bundleOwner, sizeAddition);
-    tableDatabaseTable.updateTableSize(entry, totalSize);
+    updateTableSize(sizeAddition, bundleOwner);
     insert(DatabaseRow.of(createRowValues(row)));
     return true;
   }
@@ -118,18 +120,17 @@ public final class Table extends DatabaseTable {
         .thenApply(previousRow -> row.size() - previousRow.size())
         .thenCompose(sizeAddition -> checkDatabaseSizeLimit(bundleOwner, sizeAddition)
           .thenApply(limitReached -> updateContent(id, row, bundleOwner,
-            sizeAddition, entry.size() + sizeAddition, limitReached))));
+            sizeAddition, limitReached))));
   }
 
   private boolean updateContent(
-    UUID id, TableRow row, UUID bundleOwner, long sizeAddition, long totalSize,
+    UUID id, TableRow row, UUID bundleOwner, long sizeAddition,
     boolean limitReached
   ) {
     if (limitReached) {
       return false;
     }
-    tableSizeDatabaseTable.updateSize(bundleOwner, sizeAddition);
-    tableDatabaseTable.updateTableSize(entry, totalSize);
+    updateTableSize(sizeAddition, bundleOwner);
     update(DatabaseCondition.of("owner", entry.owner(), "id", id),
       DatabaseRow.of(createRowValues(row)));
     return true;
@@ -139,7 +140,7 @@ public final class Table extends DatabaseTable {
     UUID bundleOwner, long sizeAddition
   ) {
     return bundleDatabaseTable.findBundle(bundleOwner)
-      .thenCompose(bundle -> tableSizeDatabaseTable.findSize(bundleOwner)
+      .thenCompose(bundle -> tableUsageDatabaseTable.findUsage(bundleOwner)
         .thenApply(size -> size + sizeAddition)
         .thenApply(dataSize -> bundle.databaseDataLimit() > 0 &&
           dataSize * Math.pow(10, -9) >= bundle.databaseDataLimit()));
@@ -199,12 +200,9 @@ public final class Table extends DatabaseTable {
       selectRow(DatabaseCondition.of("owner", entry.owner(), "id", id))
         .thenApply(row -> TableRow.of(errorRepository, row, columns()))
         .thenApply(row -> - row.size())
-        .thenCompose(sizeAddition ->
-          tableSizeDatabaseTable.updateSize(bundleOwner, sizeAddition)
-            .thenAccept(value -> tableDatabaseTable.updateTableSize(entry,
-              entry.size() + sizeAddition))
-            .thenAccept(value -> delete(DatabaseCondition.of("owner",
-              entry.owner(), "id", id)))));
+        .thenAccept(sizeAddition -> updateTableSize(sizeAddition, bundleOwner))
+        .thenAccept(value -> delete(DatabaseCondition.of("owner",
+          entry.owner(), "id", id))));
   }
 
   private CompletableFuture<List<DatabaseColumn>> findTableColumns() {
@@ -277,17 +275,31 @@ public final class Table extends DatabaseTable {
   private void recalculateTableSize() {
     var futureSize = selectAllRows().thenApply(rows -> rows.stream()
       .mapToLong(row -> TableRow.of(errorRepository, row, columns()).size()).sum());
-    futureSize.thenAccept(size ->
-      findTableBundleOwner().thenCompose(bundleOwner ->
-        tableSizeDatabaseTable.updateSize(bundleOwner, size - entry.size())
-          .thenAccept(value -> tableDatabaseTable.updateTableSize(entry, size))));
+    futureSize.thenAccept(newSize -> tableSizeDatabaseTable.findSize(entry.id())
+      .thenApply(oldSize -> newSize - oldSize)
+      .thenAccept(sizeAddition -> findTableBundleOwner()
+        .thenAccept(bundleOwner -> tableUsageDatabaseTable.updateUsage(
+          bundleOwner, sizeAddition))
+        .thenAccept(value -> tableSizeDatabaseTable.updateSize(
+          entry.id(), sizeAddition))
+        .thenAccept(sizeValue -> tableDatabaseTable.updateTableSize(
+          entry, newSize))));
   }
 
   @Override
   public CompletableFuture<Void> drop(String addition) {
-    findTableBundleOwner().thenCompose(bundleOwner ->
-      tableSizeDatabaseTable.updateSize(bundleOwner, -entry.size()));
+    findTableBundleOwner()
+      .thenCompose(bundleOwner -> tableSizeDatabaseTable.findSize(entry.id())
+        .thenCompose(size -> tableUsageDatabaseTable.updateUsage(bundleOwner, -size)
+          .thenCompose(value -> tableSizeDatabaseTable.deleteSize(entry.id()))));
     return super.drop(addition);
+  }
+
+  private void updateTableSize(long sizeAddition, UUID bundleOwner) {
+    tableUsageDatabaseTable.updateUsage(bundleOwner, sizeAddition);
+    tableSizeDatabaseTable.updateSize(entry.id(), sizeAddition)
+      .thenAccept(value -> tableSizeDatabaseTable.findSize(entry.id())
+        .thenAccept(size -> tableDatabaseTable.updateTableSize(entry.id(), size)));
   }
 
   private CompletableFuture<UUID> findTableBundleOwner() {
