@@ -183,17 +183,18 @@ public final class TableModificationController extends TableController {
     var futureResponse = new CompletableFuture<Void>();
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableEntry).thenAccept(table ->
-        updateTableEntry(table, body.getUUID("row"),
+        updateTableEntry(tableEntry, table, body.getUUID("row"),
           body.getObject("content").raw().toMap(), response)
           .thenAccept(value -> futureResponse.complete(null))), () -> {});
     return futureResponse;
   }
 
   private CompletableFuture<Void> updateTableEntry(
-    Table table, UUID rowId, Map<String, Object> rowContent,
+    TableEntry tableEntry, Table table, UUID rowId, Map<String, Object> rowContent,
     HttpServletResponse response
   ) {
     var cells = Lists.<TableCell>newArrayList();
+    cells.add(TableCell.create("owner", tableEntry.owner()));
     cells.add(TableCell.create("id", rowId));
     for (var entry : rowContent.entrySet()) {
       cells.add(TableCell.create(entry.getKey(), entry.getValue()));
