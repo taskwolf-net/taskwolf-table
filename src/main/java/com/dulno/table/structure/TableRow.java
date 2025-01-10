@@ -40,7 +40,7 @@ public final class TableRow {
       objectOutputStream.flush();
       return byteOutputStream.toByteArray().length;
     } catch (Exception exception) {
-      exception.printStackTrace();
+      errorRepository.processError(exception);
     }
     return -1;
   }

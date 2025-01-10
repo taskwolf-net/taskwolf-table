@@ -1,5 +1,6 @@
 package com.dulno.table.access;
 
+import com.dulno.core.database.DatabaseRow;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.table.structure.*;
 import com.dulno.workflow.WorkflowModule;
@@ -132,38 +133,47 @@ public final class TableModificationController extends TableController {
   }
 
   @RequestMapping(path = "/table/entry/insert/", method = RequestMethod.POST)
-  public CompletableFuture<Void> insertTableEntry(
+  public CompletableFuture<Map<String, Object>> insertTableEntry(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var tableId = body.getString("table");
-    var futureResponse = new CompletableFuture<Void>();
-    performTableOperation(findUserId(request), tableId, tableEntry ->
-      tableFactory.create(tableEntry).thenAccept(table ->
-        table.generateAvailableContentId().thenAccept(contentId ->
-          insertTableEntry(tableEntry, table, contentId,
-            body.getObject("row").raw().toMap(), response)
-            .thenAccept(value -> futureResponse.complete(null)))), () -> {});
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    performTableOperation(findUserId(request), tableId,
+      tableEntry -> tableFactory.create(tableEntry)
+        .thenAccept(table -> table.generateAvailableContentId()
+          .thenAccept(contentId -> insertTableEntry(tableEntry, table, contentId)
+            .thenAccept(futureResponse::complete))), () -> {});
     return futureResponse;
   }
 
-  private CompletableFuture<Void> insertTableEntry(
-    TableEntry tableEntry, Table table, UUID contentId,
-    Map<String, Object> rowContent, HttpServletResponse response
+  private CompletableFuture<Map<String, Object>> insertTableEntry(
+    TableEntry tableEntry, Table table, UUID contentId
   ) {
     var cells = Lists.<TableCell>newArrayList();
     cells.add(TableCell.create("owner", tableEntry.owner()));
     cells.add(TableCell.create("id", contentId));
-    for (var entry : rowContent.entrySet()) {
-      cells.add(TableCell.create(entry.getKey(), entry.getValue()));
+    for (var column : table.columns()) {
+      if (column.name().equals("owner") || column.name().equals("id")) {
+        continue;
+      }
+      cells.add(TableCell.create(column.name(), ""));
     }
     workflowModule.triggerWorkflows("table", "database-entry-insert-trigger",
       DatabaseCondition.of("tableId", tableEntry.id()),
       tableInsertInformation(table, contentId));
     return table.insertContent(TableRow.create(errorRepository, cells))
-      .thenAccept(success -> response.setStatus(success ?
-        HttpServletResponse.SC_OK : HttpServletResponse.SC_BAD_REQUEST));
+      .thenApply(success -> finishTableEntryInsertion(success, contentId));
+  }
+
+  private Map<String, Object> finishTableEntryInsertion(
+    boolean success, UUID contentId
+  ) {
+    if (!success) {
+      return Map.of("success", false);
+    }
+    return  Map.of("success", true, "id", contentId);
   }
 
   private Map<String, Object> tableInsertInformation(Table table, UUID entryId) {
@@ -174,34 +184,42 @@ public final class TableModificationController extends TableController {
   }
 
   @RequestMapping(path = "/table/entry/update/", method = RequestMethod.POST)
-  public CompletableFuture<Void> updateTableEntry(
+  public CompletableFuture<Map<String, Object>> updateTableEntry(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var tableId = body.getString("table");
-    var futureResponse = new CompletableFuture<Void>();
-    performTableOperation(findUserId(request), tableId, tableEntry ->
-      tableFactory.create(tableEntry).thenAccept(table ->
-        updateTableEntry(tableEntry, table, body.getUUID("row"),
-          body.getObject("content").raw().toMap(), response)
-          .thenAccept(value -> futureResponse.complete(null))), () -> {});
+    var rowId = body.getUUID("row");
+    var column = body.getString("column");
+    var value = body.getString("value");
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    performTableOperation(findUserId(request), tableId,
+      tableEntry -> tableFactory.create(tableEntry)
+        .thenAccept(table -> table.findContent(rowId)
+          .thenAccept(row -> updateTableEntry(table, row, rowId, column, value)
+            .thenAccept(futureResponse::complete))), () -> {});
     return futureResponse;
   }
 
-  private CompletableFuture<Void> updateTableEntry(
-    TableEntry tableEntry, Table table, UUID rowId, Map<String, Object> rowContent,
-    HttpServletResponse response
+  private CompletableFuture<Map<String, Object>> updateTableEntry(
+    Table table, DatabaseRow row, UUID rowId, String cellColumn, String cellValue
   ) {
+    var columns = table.columns();
+    if (columns.stream().noneMatch(entry -> entry.name().equals(cellColumn))) {
+      return CompletableFuture.completedFuture(Map.of("success", false));
+    }
     var cells = Lists.<TableCell>newArrayList();
-    cells.add(TableCell.create("owner", tableEntry.owner()));
-    cells.add(TableCell.create("id", rowId));
-    for (var entry : rowContent.entrySet()) {
-      cells.add(TableCell.create(entry.getKey(), entry.getValue()));
+    for (var i = 0; i < columns.size(); i++) {
+      var column = columns.get(i).name();
+      if (column.equals(cellColumn)) {
+        cells.add(TableCell.create(cellColumn, cellValue));
+        continue;
+      }
+      cells.add(TableCell.create(column, row.findCell(i).value()));
     }
     return table.updateContent(rowId, TableRow.create(errorRepository, cells))
-      .thenAccept(success -> response.setStatus(success ?
-        HttpServletResponse.SC_OK : HttpServletResponse.SC_BAD_REQUEST));
+      .thenApply(success -> Map.of("success", success));
   }
 
   @RequestMapping(path = "/table/entry/remove/", method = RequestMethod.POST)

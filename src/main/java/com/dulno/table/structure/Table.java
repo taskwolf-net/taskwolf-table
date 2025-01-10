@@ -114,13 +114,12 @@ public final class Table extends DatabaseTable {
   }
 
   public CompletableFuture<Boolean> updateContent(UUID id, TableRow row) {
-    return findTableBundleOwner().thenCompose(bundleOwner ->
-      selectRow(DatabaseCondition.of("owner", entry.owner(), "id", id))
-        .thenApply(previousRow -> TableRow.of(errorRepository, previousRow, columns()))
-        .thenApply(previousRow -> row.size() - previousRow.size())
-        .thenCompose(sizeAddition -> checkDatabaseSizeLimit(bundleOwner, sizeAddition)
-          .thenApply(limitReached -> updateContent(id, row, bundleOwner,
-            sizeAddition, limitReached))));
+    return findTableBundleOwner().thenCompose(bundleOwner -> findContent(id)
+      .thenApply(previousRow -> TableRow.of(errorRepository, previousRow, columns()))
+      .thenApply(previousRow -> row.size() - previousRow.size())
+      .thenCompose(sizeAddition -> checkDatabaseSizeLimit(bundleOwner, sizeAddition)
+        .thenApply(limitReached -> updateContent(id, row, bundleOwner,
+          sizeAddition, limitReached))));
   }
 
   private boolean updateContent(
@@ -170,7 +169,7 @@ public final class Table extends DatabaseTable {
     return exists(DatabaseCondition.of("owner", entry.owner(), "id", id));
   }
 
-  private static final int PAGE_SIZE = 5;
+  private static final int PAGE_SIZE = 100;
 
   public CompletableFuture<DatabasePage<TableRow>> findContentPage(int targetPage) {
     return selectPage(entry.owner(), DatabaseCondition.empty(),
@@ -178,12 +177,10 @@ public final class Table extends DatabaseTable {
       .thenApply(this::createContentPage);
   }
 
-  public CompletableFuture<DatabasePage<TableRow>> shiftContentPage(
-    String pageState, DatabaseDirection startingPoint, DatabaseDirection direction
-  ) {
+  public CompletableFuture<DatabasePage<TableRow>> nextContentPage(String pageState) {
     return shiftPage(entry.owner(), DatabaseCondition.empty(),
-      DatabaseOrder.ASCENDING, PAGE_SIZE, pageState, startingPoint, direction)
-      .thenApply(this::createContentPage);
+      DatabaseOrder.ASCENDING, PAGE_SIZE, pageState, DatabaseDirection.FORWARD,
+      DatabaseDirection.FORWARD).thenApply(this::createContentPage);
   }
 
   private DatabasePage<TableRow> createContentPage(
@@ -195,14 +192,17 @@ public final class Table extends DatabaseTable {
       page.pageState(), page.pageNumber());
   }
 
+  public CompletableFuture<DatabaseRow> findContent(UUID id) {
+    return selectRow(DatabaseCondition.of("owner", entry.owner(), "id", id));
+  }
+
   public void removeContent(UUID id) {
-    findTableBundleOwner().thenCompose(bundleOwner ->
-      selectRow(DatabaseCondition.of("owner", entry.owner(), "id", id))
-        .thenApply(row -> TableRow.of(errorRepository, row, columns()))
-        .thenApply(row -> - row.size())
-        .thenAccept(sizeAddition -> updateTableSize(sizeAddition, bundleOwner))
-        .thenAccept(value -> delete(DatabaseCondition.of("owner",
-          entry.owner(), "id", id))));
+    findTableBundleOwner().thenCompose(bundleOwner -> findContent(id)
+      .thenApply(row -> TableRow.of(errorRepository, row, columns()))
+      .thenApply(row -> - row.size())
+      .thenAccept(sizeAddition -> updateTableSize(sizeAddition, bundleOwner))
+      .thenAccept(value -> delete(DatabaseCondition.of("owner",
+        entry.owner(), "id", id))));
   }
 
   private CompletableFuture<List<DatabaseColumn>> findTableColumns() {

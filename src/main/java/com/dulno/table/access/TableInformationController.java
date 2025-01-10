@@ -15,7 +15,6 @@ import com.dulno.core.organization.team.TeamTargetDatabaseTable;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserTargetDatabaseTable;
-import com.dulno.table.structure.*;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -214,20 +213,17 @@ public final class TableInformationController extends TableController {
     return futureResponse;
   }
 
-  @RequestMapping(path = "/table/content/page/shift/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> shiftTableContentPage(
+  @RequestMapping(path = "/table/content/page/next/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> nextTableContentPage(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var pageState = body.getString("pageState");
-    var startingPoint = DatabaseDirection.valueOf(body.getString("startingPoint"));
-    var direction = DatabaseDirection.valueOf(body.getString("direction"));
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     findUser(request).thenAccept(user -> performTableOperation(user,
       body.getString("table"), entry -> tableFactory.create(entry)
-        .thenCompose(table -> table.shiftContentPage(pageState,
-          startingPoint, direction))
+        .thenCompose(table -> table.nextContentPage(pageState))
         .thenApply(this::collectContentInformation)
         .thenAccept(futureResponse::complete),
       () -> futureResponse.complete(Maps.newHashMap())));
