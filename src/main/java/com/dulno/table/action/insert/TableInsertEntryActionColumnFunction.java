@@ -57,7 +57,9 @@ public final class TableInsertEntryActionColumnFunction
   ) {
     var variables = Lists.<InputComponentVariable>newArrayList();
     for (var column : columns) {
-      if (column.name().equals("id") || column.name().equals("owner")) {
+      if (column.name().equals("id") || column.name().equals("timestamp") ||
+        column.name().equals("owner")
+      ) {
         continue;
       }
       variables.add(InputComponentVariable.createOptional(column.name(),

@@ -31,14 +31,23 @@ public final class TableRow {
   private final List<TableCell> cells;
 
   public long size() {
+    var size = 0;
     var byteOutputStream = new ByteArrayOutputStream();
     try {
       var objectOutputStream = new ObjectOutputStream(byteOutputStream);
       for (var cell : cells) {
-        objectOutputStream.writeObject(cell.value().toString().getBytes());
+        var value = cell.value();
+        if (value == null) {
+          continue;
+        }
+        if (value instanceof Long) {
+          size += 64;
+          continue;
+        }
+        objectOutputStream.writeObject(value.toString().getBytes());
       }
       objectOutputStream.flush();
-      return byteOutputStream.toByteArray().length;
+      return size + byteOutputStream.toByteArray().length;
     } catch (Exception exception) {
       errorRepository.processError(exception);
     }

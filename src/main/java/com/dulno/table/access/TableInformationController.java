@@ -15,11 +15,16 @@ import com.dulno.core.organization.team.TeamTargetDatabaseTable;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserTargetDatabaseTable;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.security.Key;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -185,7 +190,10 @@ public final class TableInformationController extends TableController {
   ) {
     var result = Lists.<Map<String, Object>>newArrayList();
     for (var column : columns) {
-      if (column.name().equalsIgnoreCase("id") || column.name().equalsIgnoreCase("owner")) {
+      if (column.name().equalsIgnoreCase("id") ||
+        column.name().equalsIgnoreCase("timestamp") ||
+        column.name().equalsIgnoreCase("owner")
+      ) {
         continue;
       }
       var columnInformation = Maps.<String, Object>newHashMap();
@@ -196,17 +204,17 @@ public final class TableInformationController extends TableController {
     return result;
   }
 
-  @RequestMapping(path = "/table/content/page/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> findTableContentPage(
+  @RequestMapping(path = "/table/content/page/first/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> firstTableContentPage(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var targetPage = body.getInt("targetPage");
+    var pageSize = body.getInt("pageSize");
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     findUser(request).thenAccept(user -> performTableOperation(user,
       body.getString("table"), entry -> tableFactory.create(entry)
-        .thenCompose(table -> table.findContentPage(targetPage))
+        .thenCompose(table -> table.firstContentPage(pageSize))
         .thenApply(this::collectContentInformation)
         .thenAccept(futureResponse::complete),
       () -> futureResponse.complete(Maps.newHashMap())));
@@ -220,10 +228,11 @@ public final class TableInformationController extends TableController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var pageState = body.getString("pageState");
+    var pageSize = body.getInt("pageSize");
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     findUser(request).thenAccept(user -> performTableOperation(user,
       body.getString("table"), entry -> tableFactory.create(entry)
-        .thenCompose(table -> table.nextContentPage(pageState))
+        .thenCompose(table -> table.nextContentPage(pageState, pageSize))
         .thenApply(this::collectContentInformation)
         .thenAccept(futureResponse::complete),
       () -> futureResponse.complete(Maps.newHashMap())));
@@ -234,11 +243,10 @@ public final class TableInformationController extends TableController {
     DatabasePage<TableRow> page
   ) {
     if (page.content().isEmpty()) {
-      return Map.of("content", Lists.newArrayList(), "page", page.pageState(),
-        "pageNumber", 0);
+      return Map.of("content", Lists.newArrayList(), "page", page.pageState());
     }
     return Map.of("content", assemblyTableRowsInformation(page.content()),
-      "page", page.pageState(), "pageNumber", page.pageNumber());
+      "page", page.pageState());
   }
 
   private List<Map<String, Object>> assemblyTableRowsInformation(List<TableRow> rows) {
@@ -254,6 +262,40 @@ public final class TableInformationController extends TableController {
       result.add(Map.of("cells", columnInformation));
     }
     return result;
+  }
+
+  @RequestMapping(path = "/table/download/", method = RequestMethod.POST)
+  public CompletableFuture<ResponseEntity<InputStreamResource>> downloadTable(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = DulnoRequestBody.of(payload, response);
+    var futureResponse = new CompletableFuture<ResponseEntity<InputStreamResource>>();
+    findUser(request).thenAccept(user -> performTableOperation(user,
+      body.getString("table"), entry -> tableFactory.create(entry)
+        .thenCompose(table -> table.download()
+          .thenApply(file -> streamTableContent(entry, file)))
+        .thenAccept(futureResponse::complete),
+      () -> futureResponse.complete(ResponseEntity.notFound().build())));
+    return futureResponse;
+  }
+
+  private ResponseEntity<InputStreamResource> streamTableContent(
+    TableEntry tableEntry, File file
+  ) {
+    try {
+      var fileInputStream = new FileInputStream(file);
+      var resource = new InputStreamResource(fileInputStream);
+      var response = ResponseEntity.ok()
+        .header(HttpHeaders.CONTENT_DISPOSITION,
+          "attachment; filename=\"" + tableEntry.name() + ".csv\"")
+        .body(resource);
+      file.delete();
+      return response;
+    } catch (Exception exception) {
+      exception.printStackTrace();
+      return ResponseEntity.notFound().build();
+    }
   }
 
   private String timeMillisecondsToDate(long milliseconds) {

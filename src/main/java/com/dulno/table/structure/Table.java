@@ -13,7 +13,12 @@ import com.dulno.core.organization.OrganizationDatabaseTable;
 import com.dulno.core.organization.team.Team;
 import com.dulno.core.organization.team.TeamDatabaseTable;
 import com.dulno.core.user.UserDatabaseTable;
+import com.opencsv.CSVWriter;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -115,23 +120,30 @@ public final class Table extends DatabaseTable {
 
   public CompletableFuture<Boolean> updateContent(UUID id, TableRow row) {
     return findTableBundleOwner().thenCompose(bundleOwner -> findContent(id)
-      .thenApply(previousRow -> TableRow.of(errorRepository, previousRow, columns()))
-      .thenApply(previousRow -> row.size() - previousRow.size())
-      .thenCompose(sizeAddition -> checkDatabaseSizeLimit(bundleOwner, sizeAddition)
-        .thenApply(limitReached -> updateContent(id, row, bundleOwner,
-          sizeAddition, limitReached))));
+      .thenCompose(previousRow -> updateContent(id, previousRow, row, bundleOwner)));
+  }
+
+  public CompletableFuture<Boolean> updateContent(
+    UUID id, DatabaseRow previousRow, TableRow newRow, UUID bundleOwner
+    ) {
+    var previusTableRow = TableRow.of(errorRepository, previousRow, columns());
+    var sizeAddition = newRow.size() - previusTableRow.size();
+    return checkDatabaseSizeLimit(bundleOwner, sizeAddition)
+      .thenApply(limitReached -> updateContent(id, previousRow, newRow,
+        bundleOwner, sizeAddition, limitReached));
   }
 
   private boolean updateContent(
-    UUID id, TableRow row, UUID bundleOwner, long sizeAddition,
-    boolean limitReached
+    UUID id, DatabaseRow previousRow, TableRow newRow, UUID bundleOwner,
+    long sizeAddition, boolean limitReached
   ) {
     if (limitReached) {
       return false;
     }
     updateTableSize(sizeAddition, bundleOwner);
-    update(DatabaseCondition.of("owner", entry.owner(), "id", id),
-      DatabaseRow.of(createRowValues(row)));
+    update(DatabaseCondition.of("owner", entry.owner(), "timestamp",
+        previousRow.findCell(1).longValue(), "id", id),
+      DatabaseRow.of(createRowValues(newRow)));
     return true;
   }
 
@@ -169,18 +181,29 @@ public final class Table extends DatabaseTable {
     return exists(DatabaseCondition.of("owner", entry.owner(), "id", id));
   }
 
-  private static final int PAGE_SIZE = 100;
+  private static final int MAX_PAGE_SIZE = 100;
 
-  public CompletableFuture<DatabasePage<TableRow>> findContentPage(int targetPage) {
+  public CompletableFuture<DatabasePage<TableRow>> firstContentPage(
+    int pageSize
+  ) {
+    if (pageSize < 0) {
+      pageSize = MAX_PAGE_SIZE;
+    }
     return selectPage(entry.owner(), DatabaseCondition.empty(),
-      DatabaseOrder.ASCENDING, PAGE_SIZE, targetPage)
+      DatabaseOrder.DESCENDING, Math.min(pageSize, MAX_PAGE_SIZE), 0)
       .thenApply(this::createContentPage);
   }
 
-  public CompletableFuture<DatabasePage<TableRow>> nextContentPage(String pageState) {
+  public CompletableFuture<DatabasePage<TableRow>> nextContentPage(
+    String pageState, int pageSize
+  ) {
+    if (pageSize < 0) {
+      pageSize = MAX_PAGE_SIZE;
+    }
     return shiftPage(entry.owner(), DatabaseCondition.empty(),
-      DatabaseOrder.ASCENDING, PAGE_SIZE, pageState, DatabaseDirection.FORWARD,
-      DatabaseDirection.FORWARD).thenApply(this::createContentPage);
+      DatabaseOrder.DESCENDING, Math.min(pageSize, MAX_PAGE_SIZE), pageState,
+      DatabaseDirection.FORWARD, DatabaseDirection.FORWARD)
+      .thenApply(this::createContentPage);
   }
 
   private DatabasePage<TableRow> createContentPage(
@@ -196,13 +219,22 @@ public final class Table extends DatabaseTable {
     return selectRow(DatabaseCondition.of("owner", entry.owner(), "id", id));
   }
 
-  public void removeContent(UUID id) {
-    findTableBundleOwner().thenCompose(bundleOwner -> findContent(id)
-      .thenApply(row -> TableRow.of(errorRepository, row, columns()))
-      .thenApply(row -> - row.size())
-      .thenAccept(sizeAddition -> updateTableSize(sizeAddition, bundleOwner))
-      .thenAccept(value -> delete(DatabaseCondition.of("owner",
-        entry.owner(), "id", id))));
+  public CompletableFuture<Void> removeContent(UUID id) {
+    return findTableBundleOwner().thenCompose(bundleOwner ->
+      removeContent(id, bundleOwner));
+  }
+
+  public CompletableFuture<Void> removeContent(UUID id, UUID bundleOwner) {
+    return findContent(id).thenCompose(row -> removeContent(id, row, bundleOwner));
+  }
+
+  private CompletableFuture<Void> removeContent(
+    UUID id, DatabaseRow row, UUID bundleOwner
+  ) {
+    var sizeAddition = - TableRow.of(errorRepository, row, columns()).size();
+    return updateTableSize(sizeAddition, bundleOwner)
+      .thenCompose(value -> delete(DatabaseCondition.of("owner", entry.owner(),
+        "timestamp", row.findCell(1).longValue(), "id", id)));
   }
 
   private CompletableFuture<List<DatabaseColumn>> findTableColumns() {
@@ -217,21 +249,23 @@ public final class Table extends DatabaseTable {
   }
 
   private List<DatabaseColumn> createDatabaseColumns(Iterable<Row> rows) {
-    DatabaseColumn partitionKeyColumn = null;
-    DatabaseColumn clusteringKeyColumn = null;
     var columns = Lists.<DatabaseColumn>newArrayList();
+    columns.add(DatabaseColumn.create("owner", DatabaseDataType.UUID,
+      DatabaseColumn.Type.PARTITION_KEY));
+    columns.add(DatabaseColumn.create("timestamp", DatabaseDataType.BIGINT,
+      DatabaseColumn.Type.CLUSTERING_KEY));
+    columns.add(DatabaseColumn.create("id", DatabaseDataType.UUID,
+      DatabaseColumn.Type.CLUSTERING_KEY));
     for (var row : rows) {
       var column = createDatabaseColumnEntry(row);
-      if (column.type().isPartitionKey()) {
-        partitionKeyColumn = column;
-      } else if (column.type().isClusteringKey()) {
-        clusteringKeyColumn = column;
-      } else {
-        columns.add(column);
+      if (column.name().equalsIgnoreCase("id") ||
+        column.name().equalsIgnoreCase("timestamp") ||
+        column.name().equalsIgnoreCase("owner")
+      ) {
+        continue;
       }
+      columns.add(column);
     }
-    columns.add(0, clusteringKeyColumn);
-    columns.add(0, partitionKeyColumn);
     return columns;
   }
 
@@ -251,6 +285,78 @@ public final class Table extends DatabaseTable {
     }
     return DatabaseColumn.create(columnName, DatabaseDataType.valueOf(dataType),
       columnType);
+  }
+
+  public CompletableFuture<File> download() {
+    try {
+      var file = new File(System.getProperty("user.dir") + "/table/" +
+        entry.id() + ".csv");
+      file.getParentFile().mkdirs();
+      file.createNewFile();
+      var fileWriter = new FileWriter(file);
+      var csvWriter = new CSVWriter(fileWriter);
+      csvWriter.writeNext(columns().stream().map(DatabaseColumn::name)
+        .filter(column -> !column.equals("owner")).toArray(String[]::new));
+      var futureResponse = new CompletableFuture<Void>();
+      firstContentPage(MAX_PAGE_SIZE).thenAccept(page ->
+        appendCSVRows(page, csvWriter, futureResponse));
+      return futureResponse.thenApply(value -> file);
+    } catch (Exception exception) {
+      errorRepository.processError(exception);
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  private void appendCSVRows(
+    DatabasePage<TableRow> page, CSVWriter csvWriter,
+    CompletableFuture<Void> futureResponse
+  ) {
+    try {
+      writeCSVPage(page, csvWriter);
+      if (page.pageState().isEmpty()) {
+        csvWriter.close();
+        futureResponse.complete(null);
+        return;
+      }
+      nextContentPage(page.pageState(), MAX_PAGE_SIZE)
+        .thenAccept(nextPage -> appendCSVRows(nextPage, csvWriter, futureResponse));
+    } catch (Exception exception) {
+      errorRepository.processError(exception);
+      futureResponse.complete(null);
+    }
+  }
+
+  private static final SimpleDateFormat TIMESTAMP_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
+  private void writeCSVPage(DatabasePage<TableRow> page, CSVWriter csvWriter) {
+    for (var row : page.content()) {
+      var cells = row.cells();
+      var data = new String[cells.size() - 1];
+      var dataIndex = 0;
+      for (var cell : cells) {
+        if (cell.column().equals("owner")) {
+          continue;
+        }
+        var value = cell.value();
+        if (value == null) {
+          data[dataIndex] = "";
+        } else if (cell.column().equals("timestamp")) {
+          data[dataIndex] = TIMESTAMP_FORMAT.format(new Date((long) cell.value()));
+        } else {
+          data[dataIndex] = value.toString();
+        }
+        dataIndex++;
+      }
+      csvWriter.writeNext(data);
+    }
+  }
+
+  @Override
+  public CompletableFuture<Void> truncate() {
+    findTableBundleOwner()
+      .thenCompose(bundleOwner -> tableSizeDatabaseTable.findSize(entry.id())
+        .thenCompose(size -> updateTableSize(-size, bundleOwner)));
+    return super.truncate();
   }
 
   private static final Pattern COLUMN_PATTERN =
@@ -273,6 +379,7 @@ public final class Table extends DatabaseTable {
   }
 
   private void recalculateTableSize() {
+    //TODO: REMOVE SELECT ALL ROWS BY PAGING
     var futureSize = selectAllRows().thenApply(rows -> rows.stream()
       .mapToLong(row -> TableRow.of(errorRepository, row, columns()).size()).sum());
     futureSize.thenAccept(newSize -> tableSizeDatabaseTable.findSize(entry.id())
@@ -295,14 +402,18 @@ public final class Table extends DatabaseTable {
     return super.drop(addition);
   }
 
-  private void updateTableSize(long sizeAddition, UUID bundleOwner) {
-    tableUsageDatabaseTable.updateUsage(bundleOwner, sizeAddition);
-    tableSizeDatabaseTable.updateSize(entry.id(), sizeAddition)
-      .thenAccept(value -> tableSizeDatabaseTable.findSize(entry.id())
-        .thenAccept(size -> tableDatabaseTable.updateTableSize(entry.id(), size)));
+  private CompletableFuture<Void> updateTableSize(
+    long sizeAddition, UUID bundleOwner
+  ) {
+    return tableUsageDatabaseTable.updateUsage(bundleOwner, sizeAddition)
+      .thenCompose(usageValue -> tableSizeDatabaseTable.updateSize(entry.id(),
+          sizeAddition)
+        .thenCompose(sizeValue -> tableSizeDatabaseTable.findSize(entry.id())
+          .thenCompose(size -> tableDatabaseTable.updateTableSize(entry.id(),
+            size))));
   }
 
-  private CompletableFuture<UUID> findTableBundleOwner() {
+  public CompletableFuture<UUID> findTableBundleOwner() {
     var owner = entry.owner();
     return userDatabaseTable.userExists(owner)
       .thenCompose(userExists -> organizationDatabaseTable.organizationExists(owner)

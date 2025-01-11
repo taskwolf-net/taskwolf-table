@@ -71,9 +71,10 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
     var tableColumns = table.columns().stream().map(DatabaseColumn::name).toList();
     var cells = Lists.<TableCell>newArrayList();
     cells.add(TableCell.create("owner", tableEntry.owner()));
+    cells.add(TableCell.create("timestamp", System.currentTimeMillis()));
     cells.add(TableCell.create("id", contentId));
     for (var column : tableColumns) {
-      if (column.equals("id") || column.equals("owner")) {
+      if (column.equals("id") || column.equals("timestamp") || column.equals("owner")) {
         continue;
       }
       cells.add(TableCell.create(column, content.has(column) ?

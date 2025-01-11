@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -121,12 +123,15 @@ public final class TableModificationController extends TableController {
     var defaultColumns = Lists.<DatabaseColumn>newArrayList();
     defaultColumns.add(DatabaseColumn.create("owner", DatabaseDataType.UUID,
       DatabaseColumn.Type.PARTITION_KEY));
+    defaultColumns.add(DatabaseColumn.create("timestamp", DatabaseDataType.BIGINT,
+      DatabaseColumn.Type.CLUSTERING_KEY));
     defaultColumns.add(DatabaseColumn.create("id", DatabaseDataType.UUID,
       DatabaseColumn.Type.CLUSTERING_KEY));
     defaultColumns.add(DatabaseColumn.create("data", DatabaseDataType.TEXT));
     var table = tableFactory.create(entry, defaultColumns);
     processes.add(table.createAsyncIfNotExists()
       .thenCompose(value -> table.createIndexAsyncIfNotExists("id"))
+      .thenCompose(value -> table.createIndexAsyncIfNotExists("timestamp"))
       .thenCompose(value -> table.createIndexAsyncIfNotExists("data")));
     return AsyncIterator.execute(processes, process -> process)
       .thenApply(value -> Map.of("table", tableId));
@@ -153,9 +158,12 @@ public final class TableModificationController extends TableController {
   ) {
     var cells = Lists.<TableCell>newArrayList();
     cells.add(TableCell.create("owner", tableEntry.owner()));
+    cells.add(TableCell.create("timestamp", System.currentTimeMillis()));
     cells.add(TableCell.create("id", contentId));
     for (var column : table.columns()) {
-      if (column.name().equals("owner") || column.name().equals("id")) {
+      if (column.name().equals("owner") || column.name().equals("timestamp") ||
+        column.name().equals("id")
+      ) {
         continue;
       }
       cells.add(TableCell.create(column.name(), ""));
@@ -222,22 +230,43 @@ public final class TableModificationController extends TableController {
       .thenApply(success -> Map.of("success", success));
   }
 
-  @RequestMapping(path = "/table/entry/remove/", method = RequestMethod.POST)
-  public void removeTableEntry(
+  @RequestMapping(path = "/table/entries/remove/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> removeTableEntries(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
     performTableOperation(findUserId(request), body.getString("table"),
-      tableEntry -> tableFactory.create(tableEntry).thenAccept(table ->
-        removeTableEntry(tableEntry, table, body.getUUID("row"))), () -> {});
+      tableEntry -> tableFactory.create(tableEntry)
+        .thenAccept(table -> table.findTableBundleOwner()
+          .thenAccept(bundleOwner -> removeTableEntries(tableEntry, table,
+            bundleOwner, body.getList("rows")).thenAccept(futureResponse::complete))),
+      () -> {});
+    return futureResponse;
   }
 
-  private void removeTableEntry(TableEntry tableEntry, Table table, UUID rowId) {
-    table.removeContent(rowId);
+  private CompletableFuture<Map<String, Object>> removeTableEntries(
+    TableEntry tableEntry, Table table, UUID tableBundleOwner, List<String> rowIds
+  ) {
+    var executorService = Executors.newSingleThreadExecutor();
+    for (var rowId : rowIds) {
+      executorService.submit(() -> removeTableEntry(tableEntry, table,
+        tableBundleOwner, UUID.fromString(rowId)).join());
+    }
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    executorService.submit(() -> futureResponse.complete(Map.of("success", true)));
+    executorService.shutdown();
+    return futureResponse;
+  }
+
+  private CompletableFuture<Void> removeTableEntry(
+    TableEntry tableEntry, Table table, UUID tableBundleOwner, UUID rowId
+  ) {
     workflowModule.triggerWorkflows("table", "database-entry-remove-trigger",
       DatabaseCondition.of("tableId", tableEntry.id()),
       tableRemoveInformation(table, rowId));
+    return table.removeContent(rowId, tableBundleOwner);
   }
 
   private Map<String, Object> tableRemoveInformation(Table table, UUID entryId) {
@@ -245,6 +274,21 @@ public final class TableModificationController extends TableController {
     information.put("tableName", table.name());
     information.put("entryId", entryId);
     return information;
+  }
+
+  @RequestMapping(path = "/table/clear/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> clearTable(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = DulnoRequestBody.of(payload, response);
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    performTableOperation(findUserId(request), body.getString("table"),
+      tableEntry -> tableFactory.create(tableEntry)
+        .thenAccept(table -> table.truncate()
+          .thenAccept(value -> futureResponse.complete(Map.of("success", true)))),
+      () -> {});
+    return futureResponse;
   }
 
   private static final Pattern COLUMN_PATTERN =
@@ -258,7 +302,10 @@ public final class TableModificationController extends TableController {
     var body = DulnoRequestBody.of(payload, response);
     var tableId = body.getString("table");
     var columnName = body.getString("columnName", 64);
-    if (columnName.equalsIgnoreCase("id") || columnName.equalsIgnoreCase("owner")) {
+    if (columnName.equalsIgnoreCase("id") ||
+      columnName.equalsIgnoreCase("timestamp") ||
+      columnName.equalsIgnoreCase("owner")
+    ) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "errorCode", 1000));
     }
@@ -301,7 +348,10 @@ public final class TableModificationController extends TableController {
     var body = DulnoRequestBody.of(payload, response);
     var tableId = body.getString("table");
     var columnName = body.getString("columnName");
-    if (columnName.equalsIgnoreCase("id") || columnName.equalsIgnoreCase("owner")) {
+    if (columnName.equalsIgnoreCase("id") ||
+      columnName.equalsIgnoreCase("timestamp") ||
+      columnName.equalsIgnoreCase("owner")
+    ) {
       return CompletableFuture.completedFuture(null);
     }
     var futureResponse = new CompletableFuture<Void>();
