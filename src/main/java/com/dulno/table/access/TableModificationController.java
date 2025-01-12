@@ -201,9 +201,6 @@ public final class TableModificationController extends TableController {
     return futureResponse;
   }
 
-  private static final Pattern COLUMN_PATTERN =
-    Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*$");
-
   @RequestMapping(path = "/table/column/add/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> addTableColumn(
     HttpServletRequest request, @RequestBody String payload,
@@ -212,21 +209,11 @@ public final class TableModificationController extends TableController {
     var body = DulnoRequestBody.of(payload, response);
     var tableId = body.getString("table");
     var columnName = body.getString("columnName", 64);
-    if (columnName.equalsIgnoreCase("id") ||
-      columnName.equalsIgnoreCase("timestamp") ||
-      columnName.equalsIgnoreCase("owner")
-    ) {
-      return CompletableFuture.completedFuture(Map.of("success", false,
-        "errorCode", 1000));
-    }
-    if (!COLUMN_PATTERN.matcher(columnName).matches()) {
-      return CompletableFuture.completedFuture(Map.of("success", false,
-        "errorCode", 1001));
-    }
+    var columnType = TableColumnType.valueOf(body.getString("columnType"));
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performTableOperation(findUserId(request), tableId,
       tableEntry -> tableFactory.create(tableEntry)
-        .thenAccept(table -> addTableColumn(table, columnName)
+        .thenAccept(table -> addTableColumn(table, columnName, columnType)
           .thenAccept(futureResponse::complete)),
       () -> futureResponse.complete(Map.of("success", false)));
     return futureResponse;
@@ -235,49 +222,40 @@ public final class TableModificationController extends TableController {
   private static final int MAX_TABLE_COLUMNS = 20;
 
   private CompletableFuture<Map<String, Object>> addTableColumn(
-    Table table, String columnName
+    Table table, String columnName, TableColumnType columnType
   ) {
-    if (table.columns().stream().anyMatch(column -> column.name().equals(columnName))) {
+    if (table.tableColumns().size() + 1 > MAX_TABLE_COLUMNS) {
       return CompletableFuture.completedFuture(Map.of("success", false,
-        "errorCode", 1002));
+        "errorCode", 1000));
     }
-    if ((table.columns().size() - 3) + 1 > MAX_TABLE_COLUMNS) {
-      return CompletableFuture.completedFuture(Map.of("success", false,
-        "errorCode", 1003));
-    }
-    return table.addColumn(DatabaseColumn.create(columnName, DatabaseDataType.TEXT))
-      .thenCompose(value -> table.createIndexAsyncIfNotExists(columnName))
+    return table.addColumn(columnName, columnType)
       .thenApply(value -> Map.of("success", true));
   }
 
   @RequestMapping(path = "/table/column/remove/", method = RequestMethod.POST)
-  public CompletableFuture<Void> removeTableColumn(
+  public CompletableFuture<Map<String, Object>> removeTableColumn(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var tableId = body.getString("table");
-    var columnName = body.getString("columnName");
-    if (columnName.equalsIgnoreCase("id") ||
-      columnName.equalsIgnoreCase("timestamp") ||
-      columnName.equalsIgnoreCase("owner")
-    ) {
-      return CompletableFuture.completedFuture(null);
-    }
-    var futureResponse = new CompletableFuture<Void>();
+    var columnId = body.getString("column");
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
     performTableOperation(findUserId(request), tableId, tableEntry ->
       tableFactory.create(tableEntry).thenAccept(table ->
-        removeTableColumn(table, columnName).thenAccept(futureResponse::complete)),
+        removeTableColumn(table, columnId).thenAccept(futureResponse::complete)),
       () -> {});
     return futureResponse;
   }
 
-  private CompletableFuture<Void> removeTableColumn(Table table, String columnName) {
-    if (table.columns().stream().noneMatch(column -> column.name().equals(columnName))) {
-      return CompletableFuture.completedFuture(null);
+  private CompletableFuture<Map<String, Object>> removeTableColumn(
+    Table table, String columnId
+  ) {
+    if (table.tableColumns().stream().noneMatch(column -> column.id().equals(columnId))) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "errorCode", 1000));
     }
-    return table.dropIndexAsyncIfExists(columnName)
-      .thenCompose(value -> table.dropColumn(columnName));
+    return table.dropColumn(columnId).thenApply(value -> Map.of("success", true));
   }
 
   @RequestMapping(path = "/table/rename/", method = RequestMethod.POST)

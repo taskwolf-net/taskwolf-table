@@ -42,6 +42,8 @@ public final class TableRow {
         size += 16;
       } else if (value instanceof Long) {
         size += 8;
+      } else if (value instanceof Boolean) {
+        size += 1;
       } else if (value instanceof String string) {
         size += string.getBytes(StandardCharsets.UTF_8).length;
       }

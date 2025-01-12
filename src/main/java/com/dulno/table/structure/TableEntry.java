@@ -23,6 +23,7 @@ public final class TableEntry {
       row.findCell(columns.indexOf("id")).stringValue(),
       row.findCell(columns.indexOf("creator")).uuidValue(),
       row.findCell(columns.indexOf("name")).stringValue(),
+      row.findCell(columns.indexOf("columns")).listValue(),
       row.findCell(columns.indexOf("created")).longValue(),
       row.findCell(columns.indexOf("size")).longValue());
   }
@@ -31,11 +32,16 @@ public final class TableEntry {
   private final String id;
   private final UUID creator;
   private String name;
+  private List<String> columns;
   private final long created;
   private long size;
 
   public void changeName(String newName) {
     name = newName;
+  }
+
+  public void updateColumns(List<String> newColumns) {
+    columns = newColumns;
   }
 
   public void updateSize(long newSize) {

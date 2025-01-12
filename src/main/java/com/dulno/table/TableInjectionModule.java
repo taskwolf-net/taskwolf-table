@@ -1,6 +1,7 @@
 package com.dulno.table;
 
 import com.dulno.core.error.ErrorRepository;
+import com.dulno.table.structure.TableColumnDatabaseTable;
 import com.dulno.table.structure.TableSizeDatabaseTable;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
@@ -52,6 +53,14 @@ public class TableInjectionModule extends AbstractModule {
     DatabaseConnection connection, DatabaseKeyspace keyspace
   ) {
     return TableDatabaseTable.create(connection, keyspace);
+  }
+
+  @Provides
+  @Singleton
+  TableColumnDatabaseTable provideColumnTableDatabaseTable(
+    DatabaseConnection connection, DatabaseKeyspace keyspace
+  ) {
+    return TableColumnDatabaseTable.create(connection, keyspace);
   }
 
   @Provides

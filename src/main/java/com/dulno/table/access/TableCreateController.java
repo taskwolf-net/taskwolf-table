@@ -5,6 +5,7 @@ import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.database.DatabaseColumn;
 import com.dulno.core.database.DatabaseDataType;
 import com.dulno.core.iterator.AsyncIterator;
+import com.dulno.core.locale.Translation;
 import com.dulno.core.organization.team.Team;
 import com.dulno.core.organization.team.TeamDatabaseTable;
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
@@ -28,22 +29,27 @@ import java.util.stream.Stream;
 @RestController
 public final class TableCreateController extends TableController {
   private final TableFactory tableFactory;
+  private final TableColumnDatabaseTable tableColumnDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final TeamDatabaseTable teamDatabaseTable;
+  private final Translation translation;
 
   private TableCreateController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
     TableDatabaseTable tableDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
-    TableFactory tableFactory, BundleDatabaseTable bundleDatabaseTable,
-    TeamDatabaseTable teamDatabaseTable
+    TableFactory tableFactory, TableColumnDatabaseTable tableColumnDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable, TeamDatabaseTable teamDatabaseTable,
+    Translation translation
   ) {
     super(secretKey, userDatabaseTable, tableDatabaseTable,
       userTargetDatabaseTable, teamTargetDatabaseTable);
     this.tableFactory = tableFactory;
+    this.tableColumnDatabaseTable = tableColumnDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.teamDatabaseTable = teamDatabaseTable;
+    this.translation = translation;
   }
 
   @RequestMapping(path = "/table/create/", method = RequestMethod.POST)
@@ -56,27 +62,42 @@ public final class TableCreateController extends TableController {
     if (name.isEmpty()) {
       return CompletableFuture.completedFuture(null);
     }
-    return findUser(request).thenCompose(user ->
-      userTargetDatabaseTable().findTargetSecured(user.id()).thenCompose(target ->
-        findTableOwner(user, target).thenCompose(owner ->
-          tableDatabaseTable().generateAvailableTableId().thenCompose(tableId ->
-            checkDatabaseNumberLimit(user, target).thenCompose(limitReached ->
-              createTable(tableId, owner, user.id(), name,
-                limitReached, response))))));
+    return findUser(request)
+      .thenCompose(user -> userTargetDatabaseTable().findTargetSecured(user.id())
+        .thenCompose(target -> findTableOwner(user, target)
+          .thenCompose(owner -> tableDatabaseTable().generateAvailableTableId()
+            .thenCompose(tableId -> tableColumnDatabaseTable.generateAvailableColumnId()
+              .thenCompose(columnId -> checkDatabaseNumberLimit(user, target)
+                .thenCompose(limitReached -> createTable(user, tableId, columnId,
+                  owner, name, limitReached, response)))))));
   }
 
   private CompletableFuture<Map<String, Object>> createTable(
-    String tableId, UUID owner, UUID creator, String name, boolean limitReached,
-    HttpServletResponse response
+    User user, String tableId, String columnId, UUID owner,
+    String name, boolean limitReached, HttpServletResponse response
   ) {
     if (limitReached) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
-    var entry = TableEntry.create(owner, tableId, creator, name,
-      System.currentTimeMillis(), 0);
+    var entry = TableEntry.create(owner, tableId, user.id(), name,
+      Lists.newArrayList(columnId), System.currentTimeMillis(), 0);
     processes.add(tableDatabaseTable().insertTable(entry));
+    var tableColumn = TableColumn.create(columnId, tableId, TableColumnType.TEXT,
+      translation.translate(user, "table.column.default"));
+    processes.add(tableColumnDatabaseTable.insertColumn(tableColumn));
+    var table = tableFactory.create(entry, createDefaultColumns(columnId),
+      Lists.newArrayList(tableColumn));
+    processes.add(table.createAsyncIfNotExists()
+      .thenCompose(value -> table.createIndexAsyncIfNotExists("id"))
+      .thenCompose(value -> table.createIndexAsyncIfNotExists("timestamp"))
+      .thenCompose(value -> table.createIndexAsyncIfNotExists(columnId)));
+    return AsyncIterator.execute(processes, process -> process)
+      .thenApply(value -> Map.of("table", tableId));
+  }
+
+  private List<DatabaseColumn> createDefaultColumns(String columnId) {
     var defaultColumns = Lists.<DatabaseColumn>newArrayList();
     defaultColumns.add(DatabaseColumn.create("owner", DatabaseDataType.UUID,
       DatabaseColumn.Type.PARTITION_KEY));
@@ -84,14 +105,8 @@ public final class TableCreateController extends TableController {
       DatabaseColumn.Type.CLUSTERING_KEY));
     defaultColumns.add(DatabaseColumn.create("id", DatabaseDataType.UUID,
       DatabaseColumn.Type.CLUSTERING_KEY));
-    defaultColumns.add(DatabaseColumn.create("data", DatabaseDataType.TEXT));
-    var table = tableFactory.create(entry, defaultColumns);
-    processes.add(table.createAsyncIfNotExists()
-      .thenCompose(value -> table.createIndexAsyncIfNotExists("id"))
-      .thenCompose(value -> table.createIndexAsyncIfNotExists("timestamp"))
-      .thenCompose(value -> table.createIndexAsyncIfNotExists("data")));
-    return AsyncIterator.execute(processes, process -> process)
-      .thenApply(value -> Map.of("table", tableId));
+    defaultColumns.add(DatabaseColumn.create(columnId, DatabaseDataType.TEXT));
+    return defaultColumns;
   }
 
   private CompletableFuture<UUID> findTableOwner(User user, UUID target) {

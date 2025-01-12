@@ -6,7 +6,6 @@ import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.database.DatabaseColumn;
 import com.dulno.core.database.paging.DatabaseDirection;
 import com.dulno.core.database.paging.DatabaseOrder;
 import com.dulno.core.database.paging.DatabasePage;
@@ -181,24 +180,19 @@ public final class TableInformationController extends TableController {
     TableEntry entry, User creator, Table table
   ) {
     var information = superficialTableInformation(entry, creator);
-    information.put("columns", assemblyTableColumnsInformation(table.columns()));
+    information.put("columns", assemblyTableColumnsInformation(table.tableColumns()));
     return information;
   }
 
   private List<Map<String, Object>> assemblyTableColumnsInformation(
-    List<DatabaseColumn> columns
+    List<TableColumn> columns
   ) {
     var result = Lists.<Map<String, Object>>newArrayList();
     for (var column : columns) {
-      if (column.name().equalsIgnoreCase("id") ||
-        column.name().equalsIgnoreCase("timestamp") ||
-        column.name().equalsIgnoreCase("owner")
-      ) {
-        continue;
-      }
       var columnInformation = Maps.<String, Object>newHashMap();
+      columnInformation.put("id", column.id());
+      columnInformation.put("type", column.type());
       columnInformation.put("name", column.name());
-      columnInformation.put("type", column.dataType());
       result.add(columnInformation);
     }
     return result;

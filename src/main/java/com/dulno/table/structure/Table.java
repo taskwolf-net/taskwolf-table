@@ -22,41 +22,25 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.regex.Pattern;
 
 public final class Table extends DatabaseTable {
-  public static CompletableFuture<Table> create(
-    DatabaseConnection connection, DatabaseKeyspace keyspace,
-    UserDatabaseTable userDatabaseTable,
-    OrganizationDatabaseTable organizationDatabaseTable,
-    TeamDatabaseTable teamDatabaseTable, BundleDatabaseTable bundleDatabaseTable,
-    TableDatabaseTable tableDatabaseTable,
-    TableUsageDatabaseTable tableUsageDatabaseTable,
-    TableSizeDatabaseTable tableSizeDatabaseTable, ErrorRepository errorRepository,
-    TableEntry entry
-  ) {
-    var table = new Table(connection, keyspace, entry.id(), Lists.newArrayList(),
-      userDatabaseTable, organizationDatabaseTable, teamDatabaseTable,
-      bundleDatabaseTable, tableDatabaseTable, tableUsageDatabaseTable,
-      tableSizeDatabaseTable, errorRepository, entry);
-    return table.findTableColumns().thenAccept(table::fillColumns)
-      .thenApply(value -> table);
-  }
-
   public static Table create(
     DatabaseConnection connection, DatabaseKeyspace keyspace,
     UserDatabaseTable userDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     TeamDatabaseTable teamDatabaseTable, BundleDatabaseTable bundleDatabaseTable,
     TableDatabaseTable tableDatabaseTable,
+    TableColumnDatabaseTable tableColumnDatabaseTable,
     TableUsageDatabaseTable tableUsageDatabaseTable,
     TableSizeDatabaseTable tableSizeDatabaseTable, ErrorRepository errorRepository,
-    List<DatabaseColumn> columns, TableEntry entry
+    List<DatabaseColumn> databaseColumns, TableEntry entry,
+    List<TableColumn> tableColumns
   ) {
-    return new Table(connection, keyspace, entry.id(), columns,
+    return new Table(connection, keyspace, entry.id(), databaseColumns,
       userDatabaseTable, organizationDatabaseTable, teamDatabaseTable,
-      bundleDatabaseTable, tableDatabaseTable, tableUsageDatabaseTable,
-      tableSizeDatabaseTable, errorRepository, entry);
+      bundleDatabaseTable, tableDatabaseTable, tableColumnDatabaseTable,
+      tableUsageDatabaseTable, tableSizeDatabaseTable, errorRepository, entry,
+      tableColumns);
   }
 
   private final UserDatabaseTable userDatabaseTable;
@@ -64,31 +48,36 @@ public final class Table extends DatabaseTable {
   private final TeamDatabaseTable teamDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final TableDatabaseTable tableDatabaseTable;
+  private final TableColumnDatabaseTable tableColumnDatabaseTable;
   private final TableUsageDatabaseTable tableUsageDatabaseTable;
   private final TableSizeDatabaseTable tableSizeDatabaseTable;
   private final ErrorRepository errorRepository;
   private final TableEntry entry;
+  private final List<TableColumn> tableColumns;
 
   private Table(
     DatabaseConnection connection, DatabaseKeyspace keyspace, String name,
-    List<DatabaseColumn> columns, UserDatabaseTable userDatabaseTable,
+    List<DatabaseColumn> databaseColumns, UserDatabaseTable userDatabaseTable,
     OrganizationDatabaseTable organizationDatabaseTable,
     TeamDatabaseTable teamDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable, TableDatabaseTable tableDatabaseTable,
+    TableColumnDatabaseTable tableColumnDatabaseTable,
     TableUsageDatabaseTable tableUsageDatabaseTable,
     TableSizeDatabaseTable tableSizeDatabaseTable, ErrorRepository errorRepository,
-    TableEntry entry
+    TableEntry entry, List<TableColumn> tableColumns
   ) {
-    super(connection, keyspace, name, columns);
+    super(connection, keyspace, name, databaseColumns);
     this.userDatabaseTable = userDatabaseTable;
     this.organizationDatabaseTable = organizationDatabaseTable;
     this.teamDatabaseTable = teamDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.tableDatabaseTable = tableDatabaseTable;
+    this.tableColumnDatabaseTable = tableColumnDatabaseTable;
     this.tableUsageDatabaseTable = tableUsageDatabaseTable;
     this.tableSizeDatabaseTable = tableSizeDatabaseTable;
     this.errorRepository = errorRepository;
     this.entry = entry;
+    this.tableColumns = tableColumns;
   }
 
   public CompletableFuture<Boolean> insertContent(TableRow row) {
@@ -237,7 +226,7 @@ public final class Table extends DatabaseTable {
         "timestamp", row.findCell(1).longValue(), "id", id)));
   }
 
-  private CompletableFuture<List<DatabaseColumn>> findTableColumns() {
+  public CompletableFuture<Void> equipTableColumns() {
     var query = new StringBuilder("SELECT * FROM system_schema.columns WHERE ");
     query.append("keyspace_name = '");
     query.append(keyspace().name());
@@ -245,7 +234,8 @@ public final class Table extends DatabaseTable {
     query.append(name());
     query.append("';");
     return connection().execute(query)
-      .thenApply(result -> createDatabaseColumns(result.currentPage()));
+      .thenApply(result -> createDatabaseColumns(result.currentPage()))
+      .thenAccept(this::fillColumns);
   }
 
   private List<DatabaseColumn> createDatabaseColumns(Iterable<Row> rows) {
@@ -353,56 +343,67 @@ public final class Table extends DatabaseTable {
 
   @Override
   public CompletableFuture<Void> truncate() {
-    findTableBundleOwner()
-      .thenCompose(bundleOwner -> tableSizeDatabaseTable.findSize(entry.id())
-        .thenCompose(size -> updateTableSize(-size, bundleOwner)));
-    return super.truncate();
+    return super.truncate()
+      .thenCompose(value -> findTableBundleOwner()
+        .thenCompose(bundleOwner -> tableSizeDatabaseTable.findSize(entry.id())
+          .thenCompose(size -> updateTableSize(-size, bundleOwner))));
   }
 
-  private static final Pattern COLUMN_PATTERN =
-    Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*$");
+  public CompletableFuture<Void> addColumn(String name, TableColumnType type) {
+    return tableColumnDatabaseTable.generateAvailableColumnId()
+      .thenApply(id -> TableColumn.create(id, entry.id(), type, name))
+      .thenCompose(column -> tableColumnDatabaseTable.insertColumn(column)
+        .thenCompose(value -> super.addColumn(column.toDatabaseColumn()))
+        .thenCompose(value -> createIndexAsyncIfNotExists(column.id()))
+        .thenCompose(value -> recalculateTableSize())
+        .thenAccept(value -> tableColumns.add(column)));
+  }
 
-  @Override
-  public CompletableFuture<Void> addColumn(DatabaseColumn column) {
-    if (!COLUMN_PATTERN.matcher(column.name()).matches()) {
+  public CompletableFuture<Void> dropColumn(String columnId) {
+    var columnOptional = tableColumns.stream()
+      .filter(entry -> entry.id().equals(columnId)).findFirst();
+    if (columnOptional.isEmpty()) {
       return CompletableFuture.completedFuture(null);
     }
-    return super.addColumn(column).thenAccept(value -> recalculateTableSize());
+    var column = columnOptional.get();
+    tableColumns.remove(column);
+    return tableColumnDatabaseTable.deleteColumn(column.id())
+      .thenCompose(value -> dropIndexAsyncIfExists(column.id()))
+      .thenCompose(value -> super.dropColumn(column.id()))
+      .thenCompose(value -> recalculateTableSize());
   }
 
-  @Override
-  public CompletableFuture<Void> dropColumn(String columnName) {
-    if (!COLUMN_PATTERN.matcher(columnName).matches()) {
-      return CompletableFuture.completedFuture(null);
-    }
-    return super.dropColumn(columnName).thenAccept(value -> recalculateTableSize());
-  }
-
-  private void recalculateTableSize() {
+  private CompletableFuture<Void> recalculateTableSize() {
+    var futureResponse = new CompletableFuture<Void>();
     firstContentPage(MAX_PAGE_SIZE)
-      .thenAccept(page -> recalculateTableSize(page, 0L));
+      .thenAccept(page -> recalculateTableSize(page, 0L, futureResponse));
+    return futureResponse;
   }
 
-  private void recalculateTableSize(DatabasePage<TableRow> page, long size) {
+  private void recalculateTableSize(
+    DatabasePage<TableRow> page, long size,
+    CompletableFuture<Void> futureResponse
+  ) {
     var newSize = size + page.content().stream().mapToLong(TableRow::size).sum();
     if (page.pageState().isEmpty()) {
       tableSizeDatabaseTable.findSize(entry.id())
         .thenApply(oldSize -> newSize - oldSize)
         .thenAccept(sizeAddition -> findTableBundleOwner()
-          .thenAccept(bundleOwner -> updateTableSize(sizeAddition, bundleOwner)));
+          .thenAccept(bundleOwner -> updateTableSize(sizeAddition, bundleOwner)
+            .thenAccept(value -> futureResponse.complete(null))));
       return;
     }
     nextContentPage(page.pageState(), MAX_PAGE_SIZE)
-      .thenAccept(nextPage -> recalculateTableSize(page, newSize));
+      .thenAccept(nextPage -> recalculateTableSize(page, newSize, futureResponse));
   }
 
   @Override
   public CompletableFuture<Void> drop(String addition) {
-    findTableBundleOwner()
-      .thenCompose(bundleOwner -> tableSizeDatabaseTable.findSize(entry.id())
-        .thenCompose(size -> tableUsageDatabaseTable.updateUsage(bundleOwner, -size)
-          .thenCompose(value -> tableSizeDatabaseTable.deleteSize(entry.id()))));
-    return super.drop(addition);
+    return super.drop(addition)
+      .thenCompose(dropValue -> findTableBundleOwner()
+        .thenCompose(bundleOwner -> tableSizeDatabaseTable.findSize(entry.id())
+          .thenCompose(size -> tableUsageDatabaseTable.updateUsage(bundleOwner, -size)
+            .thenCompose(value -> tableSizeDatabaseTable.deleteSize(entry.id())))));
   }
 
   private CompletableFuture<Void> updateTableSize(
@@ -423,5 +424,9 @@ public final class Table extends DatabaseTable {
         .thenCompose(organizationExists -> userExists || organizationExists ?
           CompletableFuture.completedFuture(owner) :
           teamDatabaseTable.findTeam(owner).thenApply(Team::organizationId)));
+  }
+
+  public List<TableColumn> tableColumns() {
+    return List.copyOf(tableColumns);
   }
 }

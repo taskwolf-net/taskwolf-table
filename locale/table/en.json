@@ -1,6 +1,8 @@
 {
   "table.link.description": "Great news! You don't need to link an account to use this module. Just click on \"skip\" to go to the next page.",
 
+  "table.column.default": "Data",
+
   "table.trigger.entry.insert.name": "Database entry insertion",
   "table.trigger.entry.insert.description": "Database entry insertion",
   "table.trigger.entry.insert.input.table.name": "Database",

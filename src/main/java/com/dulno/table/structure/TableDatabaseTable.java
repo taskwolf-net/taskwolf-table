@@ -26,11 +26,11 @@ public final class TableDatabaseTable extends DatabaseTable {
       DatabaseColumn.Type.CLUSTERING_KEY));
     columns.add(DatabaseColumn.create("creator", DatabaseDataType.UUID));
     columns.add(DatabaseColumn.create("name", DatabaseDataType.TEXT));
+    columns.add(DatabaseListColumn.create("columns", DatabaseDataType.TEXT));
     columns.add(DatabaseColumn.create("created", DatabaseDataType.BIGINT));
     columns.add(DatabaseColumn.create("size", DatabaseDataType.BIGINT));
     var table = new TableDatabaseTable(connection, keyspace, TABLE_NAME, columns);
     table.createIfNotExists();
-    table.createIndexIfNotExists("id");
     table.createIndexIfNotExists("name",
       "'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = " +
         "{'mode': 'CONTAINS', 'analyzer_class': " +
@@ -41,6 +41,7 @@ public final class TableDatabaseTable extends DatabaseTable {
   }
 
   private final Random random = new Random();
+  private DatabaseTable idView;
   private DatabaseTable nameView;
   private DatabaseTable creatorView;
   private DatabaseTable createdView;
@@ -54,6 +55,8 @@ public final class TableDatabaseTable extends DatabaseTable {
   }
 
   private void initializeViews() {
+    idView = createMaterializedViewIfNotExists("id_view", "id",
+      DatabaseColumn.Type.PARTITION_KEY);
     nameView = createMaterializedViewIfNotExists("name_view", "name");
     creatorView = createMaterializedViewIfNotExists("creator_view", "creator");
     createdView = createMaterializedViewIfNotExists("created_view", "created");
@@ -62,17 +65,18 @@ public final class TableDatabaseTable extends DatabaseTable {
 
   public CompletableFuture<Void> insertTable(TableEntry table) {
     return insertTable(table.owner(), table.id(), table.creator(), table.name(),
-      table.created(), table.size());
+      table.columns(), table.created(), table.size());
   }
 
   public CompletableFuture<Void> insertTable(
-    UUID owner, String id, UUID creator, String name, long created, long size
+    UUID owner, String id, UUID creator, String name, List<String> columns,
+    long created, long size
   ) {
-    return insert(DatabaseRow.of(owner, id, creator, name, created, size));
+    return insert(DatabaseRow.of(owner, id, creator, name, columns, created, size));
   }
 
   public CompletableFuture<Void> changeTableName(String id, String name) {
-    return findTable(id).thenAccept(table -> changeTableName(table, name));
+    return findTable(id).thenCompose(table -> changeTableName(table, name));
   }
 
   public CompletableFuture<Void> changeTableName(TableEntry entry, String name) {
@@ -80,8 +84,19 @@ public final class TableDatabaseTable extends DatabaseTable {
     return updateTable(entry);
   }
 
+  public CompletableFuture<Void> updateTableColumns(String id, List<String> columns) {
+    return findTable(id).thenCompose(table -> updateTableColumns(table, columns));
+  }
+
+  public CompletableFuture<Void> updateTableColumns(
+    TableEntry entry, List<String> columns
+  ) {
+    entry.updateColumns(columns);
+    return updateTable(entry);
+  }
+
   public CompletableFuture<Void> updateTableSize(String id, long size) {
-    return findTable(id).thenAccept(table -> updateTableSize(table, size));
+    return findTable(id).thenCompose(table -> updateTableSize(table, size));
   }
 
   public CompletableFuture<Void> updateTableSize(TableEntry entry, long size) {
@@ -92,11 +107,11 @@ public final class TableDatabaseTable extends DatabaseTable {
   private CompletableFuture<Void> updateTable(TableEntry entry) {
     return update(DatabaseCondition.of("owner", entry.owner(), "id", entry.id()),
       DatabaseRow.of(entry.owner(), entry.id(), entry.creator(), entry.name(),
-        entry.created(), entry.size()));
+        entry.columns(), entry.created(), entry.size()));
   }
 
   public CompletableFuture<Void> deleteTable(String tableId) {
-    return findTable(tableId).thenAccept(table ->
+    return findTable(tableId).thenCompose(table ->
       delete(DatabaseCondition.of("owner", table.owner(), "id", table.id())));
   }
 
@@ -120,12 +135,12 @@ public final class TableDatabaseTable extends DatabaseTable {
   }
 
   public CompletableFuture<Boolean> tableExists(String tableId) {
-    return exists(DatabaseCondition.of("id", tableId));
+    return idView.exists(DatabaseCondition.of("id", tableId));
   }
 
   public CompletableFuture<TableEntry> findTable(String tableId) {
-    return selectRow(DatabaseCondition.of("id", tableId)).thenApply(row ->
-      TableEntry.of(row, this));
+    return idView.selectRow(DatabaseCondition.of("id", tableId))
+      .thenApply(row -> TableEntry.of(row, idView));
   }
 
   private static final int PAGE_SIZE = 5;
