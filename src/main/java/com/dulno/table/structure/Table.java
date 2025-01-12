@@ -379,18 +379,21 @@ public final class Table extends DatabaseTable {
   }
 
   private void recalculateTableSize() {
-    //TODO: REMOVE SELECT ALL ROWS BY PAGING
-    var futureSize = selectAllRows().thenApply(rows -> rows.stream()
-      .mapToLong(row -> TableRow.of(errorRepository, row, columns()).size()).sum());
-    futureSize.thenAccept(newSize -> tableSizeDatabaseTable.findSize(entry.id())
-      .thenApply(oldSize -> newSize - oldSize)
-      .thenAccept(sizeAddition -> findTableBundleOwner()
-        .thenAccept(bundleOwner -> tableUsageDatabaseTable.updateUsage(
-          bundleOwner, sizeAddition))
-        .thenAccept(value -> tableSizeDatabaseTable.updateSize(
-          entry.id(), sizeAddition))
-        .thenAccept(sizeValue -> tableDatabaseTable.updateTableSize(
-          entry, newSize))));
+    firstContentPage(MAX_PAGE_SIZE)
+      .thenAccept(page -> recalculateTableSize(page, 0L));
+  }
+
+  private void recalculateTableSize(DatabasePage<TableRow> page, long size) {
+    var newSize = size + page.content().stream().mapToLong(TableRow::size).sum();
+    if (page.pageState().isEmpty()) {
+      tableSizeDatabaseTable.findSize(entry.id())
+        .thenApply(oldSize -> newSize - oldSize)
+        .thenAccept(sizeAddition -> findTableBundleOwner()
+          .thenAccept(bundleOwner -> updateTableSize(sizeAddition, bundleOwner)));
+      return;
+    }
+    nextContentPage(page.pageState(), MAX_PAGE_SIZE)
+      .thenAccept(nextPage -> recalculateTableSize(page, newSize));
   }
 
   @Override

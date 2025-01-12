@@ -9,38 +9,26 @@ import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.database.DatabaseColumn;
 import com.dulno.core.database.DatabaseDataType;
 import com.dulno.core.database.DatabaseTable;
 import com.dulno.core.database.condition.DatabaseCondition;
-import com.dulno.core.iterator.AsyncIterator;
-import com.dulno.core.organization.team.Team;
-import com.dulno.core.organization.team.TeamDatabaseTable;
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
-import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserTargetDatabaseTable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 @RestController
 public final class TableModificationController extends TableController {
   private final TableFactory tableFactory;
-  private final BundleDatabaseTable bundleDatabaseTable;
-  private final TeamDatabaseTable teamDatabaseTable;
   private final WorkflowModule workflowModule;
   private final ErrorRepository errorRepository;
 
@@ -49,92 +37,14 @@ public final class TableModificationController extends TableController {
     TableDatabaseTable tableDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
-    TableFactory tableFactory, BundleDatabaseTable bundleDatabaseTable,
-    TeamDatabaseTable teamDatabaseTable, WorkflowModule workflowModule,
+    TableFactory tableFactory, WorkflowModule workflowModule,
     ErrorRepository errorRepository
   ) {
     super(secretKey, userDatabaseTable, tableDatabaseTable,
       userTargetDatabaseTable, teamTargetDatabaseTable);
     this.tableFactory = tableFactory;
-    this.bundleDatabaseTable = bundleDatabaseTable;
-    this.teamDatabaseTable = teamDatabaseTable;
     this.workflowModule = workflowModule;
     this.errorRepository = errorRepository;
-  }
-
-  @RequestMapping(path = "/table/create/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> createTable(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
-  ) {
-    var body = DulnoRequestBody.of(payload, response);
-    var name = body.getString("name", 64);
-    if (name.isEmpty()) {
-      return CompletableFuture.completedFuture(null);
-    }
-    return findUser(request).thenCompose(user ->
-      userTargetDatabaseTable().findTargetSecured(user.id()).thenCompose(target ->
-        findTableOwner(user, target).thenCompose(owner ->
-          tableDatabaseTable().generateAvailableTableId().thenCompose(tableId ->
-            checkDatabaseNumberLimit(user, target).thenCompose(limitReached ->
-              createTable(tableId, owner, user.id(), name,
-                limitReached, response))))));
-  }
-
-  private CompletableFuture<UUID> findTableOwner(User user, UUID target) {
-    return user.id().equals(target) ?
-      CompletableFuture.completedFuture(target) :
-      teamTargetDatabaseTable().findTargetSecured(user.id())
-        .thenApply(team -> team.orElse(target));
-  }
-
-  private CompletableFuture<Boolean> checkDatabaseNumberLimit(
-    User user, UUID target
-  ) {
-    return findOwnersOfTarget(user, target)
-      .thenCompose(owners -> AsyncIterator.execute(owners, owner ->
-          tableDatabaseTable().findTableCount(owner))
-        .thenApply(sizes -> sizes.stream().mapToLong(Long::longValue).sum())
-        .thenCompose(number -> bundleDatabaseTable.findBundle(target)
-          .thenApply(bundle -> bundle.databaseNumberLimit() > 0 &&
-            number >= bundle.databaseNumberLimit())));
-  }
-
-  private CompletableFuture<List<UUID>> findOwnersOfTarget(User user, UUID target) {
-    return user.id().equals(target) ?
-      CompletableFuture.completedFuture(Lists.newArrayList(target)) :
-      teamDatabaseTable.findTeamsByOrganization(target).thenApply(teams ->
-        Stream.concat(teams.stream().map(Team::id).toList().stream(),
-          Stream.of(target)).toList());
-  }
-
-  private CompletableFuture<Map<String, Object>> createTable(
-    String tableId, UUID owner, UUID creator, String name, boolean limitReached,
-    HttpServletResponse response
-  ) {
-    if (limitReached) {
-      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      return CompletableFuture.completedFuture(Maps.newHashMap());
-    }
-    var processes = Lists.<CompletableFuture<Void>>newArrayList();
-    var entry = TableEntry.create(owner, tableId, creator, name,
-      System.currentTimeMillis(), 0);
-    processes.add(tableDatabaseTable().insertTable(entry));
-    var defaultColumns = Lists.<DatabaseColumn>newArrayList();
-    defaultColumns.add(DatabaseColumn.create("owner", DatabaseDataType.UUID,
-      DatabaseColumn.Type.PARTITION_KEY));
-    defaultColumns.add(DatabaseColumn.create("timestamp", DatabaseDataType.BIGINT,
-      DatabaseColumn.Type.CLUSTERING_KEY));
-    defaultColumns.add(DatabaseColumn.create("id", DatabaseDataType.UUID,
-      DatabaseColumn.Type.CLUSTERING_KEY));
-    defaultColumns.add(DatabaseColumn.create("data", DatabaseDataType.TEXT));
-    var table = tableFactory.create(entry, defaultColumns);
-    processes.add(table.createAsyncIfNotExists()
-      .thenCompose(value -> table.createIndexAsyncIfNotExists("id"))
-      .thenCompose(value -> table.createIndexAsyncIfNotExists("timestamp"))
-      .thenCompose(value -> table.createIndexAsyncIfNotExists("data")));
-    return AsyncIterator.execute(processes, process -> process)
-      .thenApply(value -> Map.of("table", tableId));
   }
 
   @RequestMapping(path = "/table/entry/insert/", method = RequestMethod.POST)
@@ -331,7 +241,7 @@ public final class TableModificationController extends TableController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "errorCode", 1002));
     }
-    if ((table.columns().size() - 2) + 1 > MAX_TABLE_COLUMNS) {
+    if ((table.columns().size() - 3) + 1 > MAX_TABLE_COLUMNS) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "errorCode", 1003));
     }
