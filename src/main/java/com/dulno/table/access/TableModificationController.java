@@ -76,7 +76,11 @@ public final class TableModificationController extends TableController {
       ) {
         continue;
       }
-      cells.add(TableCell.create(column.name(), ""));
+      if (column.dataType() == DatabaseDataType.TEXT) {
+        cells.add(TableCell.create(column.name(), ""));
+      } else if (column.dataType() == DatabaseDataType.BOOLEAN) {
+        cells.add(TableCell.create(column.name(), false));
+      }
     }
     workflowModule.triggerWorkflows("table", "database-entry-insert-trigger",
       DatabaseCondition.of("tableId", tableEntry.id()),

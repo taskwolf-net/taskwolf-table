@@ -289,7 +289,7 @@ public final class Table extends DatabaseTable {
       csvWriter.writeNext(createCSVHeader());
       var futureResponse = new CompletableFuture<Void>();
       firstContentPage(MAX_PAGE_SIZE).thenAccept(page ->
-        appendCSVRows(page, csvWriter, futureResponse));
+        appendCSVRows(page, csvWriter, "", futureResponse));
       return futureResponse.thenApply(value -> file);
     } catch (Exception exception) {
       errorRepository.processError(exception);
@@ -308,18 +308,18 @@ public final class Table extends DatabaseTable {
   }
 
   private void appendCSVRows(
-    DatabasePage<TableRow> page, CSVWriter csvWriter,
+    DatabasePage<TableRow> page, CSVWriter csvWriter, String previousPageState,
     CompletableFuture<Void> futureResponse
   ) {
     try {
       writeCSVPage(page, csvWriter);
-      if (page.pageState().isEmpty()) {
+      if (page.pageState().isEmpty() || previousPageState.equals(page.pageState())) {
         csvWriter.close();
         futureResponse.complete(null);
         return;
       }
-      nextContentPage(page.pageState(), MAX_PAGE_SIZE)
-        .thenAccept(nextPage -> appendCSVRows(nextPage, csvWriter, futureResponse));
+      nextContentPage(page.pageState(), MAX_PAGE_SIZE).thenAccept(nextPage ->
+        appendCSVRows(nextPage, csvWriter, page.pageState(), futureResponse));
     } catch (Exception exception) {
       errorRepository.processError(exception);
       futureResponse.complete(null);
@@ -390,16 +390,16 @@ public final class Table extends DatabaseTable {
   private CompletableFuture<Void> recalculateTableSize() {
     var futureResponse = new CompletableFuture<Void>();
     firstContentPage(MAX_PAGE_SIZE)
-      .thenAccept(page -> recalculateTableSize(page, 0L, futureResponse));
+      .thenAccept(page -> recalculateTableSize(page, 0L, "", futureResponse));
     return futureResponse;
   }
 
   private void recalculateTableSize(
-    DatabasePage<TableRow> page, long size,
+    DatabasePage<TableRow> page, long size, String previousPageState,
     CompletableFuture<Void> futureResponse
   ) {
     var newSize = size + page.content().stream().mapToLong(TableRow::size).sum();
-    if (page.pageState().isEmpty()) {
+    if (page.pageState().isEmpty() || previousPageState.equals(page.pageState())) {
       tableSizeDatabaseTable.findSize(entry.id())
         .thenApply(oldSize -> newSize - oldSize)
         .thenAccept(sizeAddition -> findTableBundleOwner()
@@ -407,8 +407,8 @@ public final class Table extends DatabaseTable {
             .thenAccept(value -> futureResponse.complete(null))));
       return;
     }
-    nextContentPage(page.pageState(), MAX_PAGE_SIZE)
-      .thenAccept(nextPage -> recalculateTableSize(page, newSize, futureResponse));
+    nextContentPage(page.pageState(), MAX_PAGE_SIZE).thenAccept(nextPage ->
+      recalculateTableSize(page, newSize, page.pageState(), futureResponse));
   }
 
   @Override
