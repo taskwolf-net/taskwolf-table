@@ -20,7 +20,7 @@ public final class TableColumn {
   public static TableColumn of(DatabaseRow row, List<String> columns) {
     return create(row.findCell(columns.indexOf("id")).stringValue(),
       row.findCell(columns.indexOf("tableId")).stringValue(),
-      TableColumnType.valueOf(row.findCell(columns.indexOf("creator")).stringValue()),
+      TableColumnType.valueOf(row.findCell(columns.indexOf("type")).stringValue()),
       row.findCell(columns.indexOf("name")).stringValue());
   }
 

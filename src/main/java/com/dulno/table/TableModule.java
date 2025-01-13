@@ -6,6 +6,7 @@ import com.dulno.table.action.find.multiple.TableFindEntriesAction;
 import com.dulno.table.action.find.single.TableFindEntryAction;
 import com.dulno.table.action.insert.TableInsertEntryAction;
 import com.dulno.table.action.remove.TableRemoveEntryAction;
+import com.dulno.table.structure.TableColumnDatabaseTable;
 import com.dulno.table.structure.TableDatabaseTable;
 import com.dulno.table.structure.TableFactory;
 import com.dulno.table.trigger.insert.TableInsertEntryTrigger;
@@ -43,9 +44,10 @@ public final class TableModule extends Integration {
     log = injector().getInstance(Log.class).subLog("Table");
     springApplication = injector().getInstance(SpringApplication.class);
     var tableDatabaseTable = injector().getInstance(TableDatabaseTable.class);
+    var tableColumnDatabaseTable = injector().getInstance(TableColumnDatabaseTable.class);
     var tableFactory = injector().getInstance(TableFactory.class);
     contextInitializer = TableContextInitializer.create(tableDatabaseTable,
-      tableFactory);
+      tableColumnDatabaseTable, tableFactory);
     springApplication.addInitializers(contextInitializer);
     accountLink = TableAccountLink.create();
     tableComponentSelect = TableComponentSelect.create(tableDatabaseTable);

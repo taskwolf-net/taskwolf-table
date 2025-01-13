@@ -2,6 +2,7 @@ package com.dulno.table.structure;
 
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.dulno.core.error.ErrorRepository;
+import com.dulno.core.iterator.AsyncIterator;
 import com.google.common.collect.Lists;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.database.*;
@@ -40,7 +41,7 @@ public final class Table extends DatabaseTable {
       userDatabaseTable, organizationDatabaseTable, teamDatabaseTable,
       bundleDatabaseTable, tableDatabaseTable, tableColumnDatabaseTable,
       tableUsageDatabaseTable, tableSizeDatabaseTable, errorRepository, entry,
-      tableColumns);
+      Lists.newArrayList(tableColumns));
   }
 
   private final UserDatabaseTable userDatabaseTable;
@@ -285,8 +286,7 @@ public final class Table extends DatabaseTable {
       file.createNewFile();
       var fileWriter = new FileWriter(file);
       var csvWriter = new CSVWriter(fileWriter);
-      csvWriter.writeNext(columns().stream().map(DatabaseColumn::name)
-        .filter(column -> !column.equals("owner")).toArray(String[]::new));
+      csvWriter.writeNext(createCSVHeader());
       var futureResponse = new CompletableFuture<Void>();
       firstContentPage(MAX_PAGE_SIZE).thenAccept(page ->
         appendCSVRows(page, csvWriter, futureResponse));
@@ -295,6 +295,16 @@ public final class Table extends DatabaseTable {
       errorRepository.processError(exception);
       return CompletableFuture.completedFuture(null);
     }
+  }
+
+  private String[] createCSVHeader() {
+    var header = Lists.<String>newArrayList();
+    header.add("dulno_timestamp");
+    header.add("dulno_id");
+    for (var column : tableColumns) {
+      header.add(column.name());
+    }
+    return header.toArray(String[]::new);
   }
 
   private void appendCSVRows(
@@ -353,10 +363,12 @@ public final class Table extends DatabaseTable {
     return tableColumnDatabaseTable.generateAvailableColumnId()
       .thenApply(id -> TableColumn.create(id, entry.id(), type, name))
       .thenCompose(column -> tableColumnDatabaseTable.insertColumn(column)
+        .thenAccept(value -> tableColumns.add(column))
+        .thenCompose(value -> tableDatabaseTable.updateTableColumns(entry.id(),
+          tableColumns.stream().map(TableColumn::id).toList()))
         .thenCompose(value -> super.addColumn(column.toDatabaseColumn()))
         .thenCompose(value -> createIndexAsyncIfNotExists(column.id()))
-        .thenCompose(value -> recalculateTableSize())
-        .thenAccept(value -> tableColumns.add(column)));
+        .thenCompose(value -> recalculateTableSize()));
   }
 
   public CompletableFuture<Void> dropColumn(String columnId) {
@@ -370,6 +382,8 @@ public final class Table extends DatabaseTable {
     return tableColumnDatabaseTable.deleteColumn(column.id())
       .thenCompose(value -> dropIndexAsyncIfExists(column.id()))
       .thenCompose(value -> super.dropColumn(column.id()))
+      .thenCompose(value -> tableDatabaseTable.updateTableColumns(entry.id(),
+        tableColumns.stream().map(TableColumn::id).toList()))
       .thenCompose(value -> recalculateTableSize());
   }
 
@@ -403,7 +417,10 @@ public final class Table extends DatabaseTable {
       .thenCompose(dropValue -> findTableBundleOwner()
         .thenCompose(bundleOwner -> tableSizeDatabaseTable.findSize(entry.id())
           .thenCompose(size -> tableUsageDatabaseTable.updateUsage(bundleOwner, -size)
-            .thenCompose(value -> tableSizeDatabaseTable.deleteSize(entry.id())))));
+            .thenCompose(value -> tableSizeDatabaseTable.deleteSize(entry.id()))))
+        .thenCompose(value -> AsyncIterator.execute(tableColumns,
+          column -> tableColumnDatabaseTable.deleteColumn(column.id())))
+        .thenApply(value -> null));
   }
 
   private CompletableFuture<Void> updateTableSize(

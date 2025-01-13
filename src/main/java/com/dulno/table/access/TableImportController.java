@@ -29,6 +29,7 @@ import java.io.FileReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.Key;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,6 +40,7 @@ import java.util.stream.Stream;
 @RestController
 public final class TableImportController extends TableController {
   private final TableFactory tableFactory;
+  private final TableColumnDatabaseTable tableColumnDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final TeamDatabaseTable teamDatabaseTable;
   private final ErrorRepository errorRepository;
@@ -48,12 +50,14 @@ public final class TableImportController extends TableController {
     TableDatabaseTable tableDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
-    TableFactory tableFactory, BundleDatabaseTable bundleDatabaseTable,
-    TeamDatabaseTable teamDatabaseTable, ErrorRepository errorRepository
+    TableFactory tableFactory, TableColumnDatabaseTable tableColumnDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable, TeamDatabaseTable teamDatabaseTable,
+    ErrorRepository errorRepository
   ) {
     super(secretKey, userDatabaseTable, tableDatabaseTable,
       userTargetDatabaseTable, teamTargetDatabaseTable);
     this.tableFactory = tableFactory;
+    this.tableColumnDatabaseTable = tableColumnDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.teamDatabaseTable = teamDatabaseTable;
     this.errorRepository = errorRepository;
@@ -117,18 +121,52 @@ public final class TableImportController extends TableController {
   }
 
   private void importTable(
-    String tableId, UUID owner, UUID creator, String name, Path tempFile,
-    SseEmitter emitter
+    String tableId, UUID owner, UUID creator, String name,
+    Path tempFile, SseEmitter emitter
   ) throws Exception {
-    var reader = new BufferedReader(new FileReader(tempFile.toFile()));
     var lines = Files.lines(tempFile).count() - 1;
-    var entry = TableEntry.create(owner, tableId, creator, name,
-      System.currentTimeMillis(), 0);
+    var reader = new BufferedReader(new FileReader(tempFile.toFile()));
     var rawHeader = reader.readLine().replaceAll("\"", "").split(",");
     var parsedHeader = parseImportHeader(rawHeader);
-    createImportTable(entry, parsedHeader, emitter)
+    generateColumnIds(parsedHeader.size())
+      .thenAccept(columnIds -> importTable(tableId, columnIds, owner,
+        creator, name, tempFile, reader, lines, rawHeader, parsedHeader,
+        emitter));
+  }
+
+  private CompletableFuture<List<String>> generateColumnIds(int number) {
+    var futureResponse = new CompletableFuture<List<String>>();
+    var ids = Collections.synchronizedList(Lists.<String>newArrayList());
+    if (number == 0) {
+      futureResponse.complete(ids);
+      return futureResponse;
+    }
+    for (int i = 0; i < number; i++) {
+      try {
+        tableColumnDatabaseTable.generateAvailableColumnId().thenAccept(ids::add)
+          .thenApply(value -> ids.size() == number &&
+            futureResponse.complete(ids));
+      } catch (Exception ignored) {
+      }
+    }
+    return futureResponse;
+  }
+
+  private void importTable(
+    String tableId, List<String> columnIds, UUID owner, UUID creator, String name,
+    Path tempFile, BufferedReader reader, long lines, String[] rawHeader,
+    List<String> parsedHeader, SseEmitter emitter
+  ) {
+    var entry = TableEntry.create(owner, tableId, creator, name, columnIds,
+      System.currentTimeMillis(), 0);
+    var columns = Lists.<TableColumn>newArrayList();
+    for (var i = 0; i < columnIds.size(); i++) {
+      columns.add(TableColumn.create(columnIds.get(i), tableId,
+        TableColumnType.TEXT, parsedHeader.get(i)));
+    }
+    createImportTable(entry, columns, emitter)
       .thenAcceptAsync(table -> insertLines(entry, table, tempFile, reader, lines,
-        Lists.newArrayList(rawHeader), parsedHeader, emitter));
+        Lists.newArrayList(rawHeader), columns, emitter));
   }
 
   private Path createImportTempFile(String tableId) throws Exception {
@@ -138,7 +176,7 @@ public final class TableImportController extends TableController {
 
   private void insertLines(
     TableEntry entry, Table table, Path file, BufferedReader reader, long lines,
-    List<String> rawHeader, List<String> parsedHeader, SseEmitter emitter
+    List<String> rawHeader, List<TableColumn> columns, SseEmitter emitter
   ) {
     sendEmitterMessage(emitter, Map.of("type", "ROWS", "number", lines));
     try {
@@ -149,9 +187,7 @@ public final class TableImportController extends TableController {
         lineIndex++;
         sendEmitterMessage(emitter, Map.of("type", "INSERTION",
           "progress", lineIndex));
-        if (!processLine(entry, table, rawHeader, parsedHeader,
-          line, time, lineIndex).join()
-        ) {
+        if (!processLine(entry, table, rawHeader, columns, line, time, lineIndex).join()) {
           break;
         }
       }
@@ -177,7 +213,7 @@ public final class TableImportController extends TableController {
 
   private CompletableFuture<Boolean> processLine(
     TableEntry tableEntry, Table table, List<String> rawHeader,
-    List<String> parsedHeader, String line, long time, long lineIndex
+    List<TableColumn> columns, String line, long time, long lineIndex
   ) {
     var data = Pattern.compile("\"(.*?)\"").matcher(line).results()
       .map(match -> match.group(1)).toArray(String[]::new);
@@ -187,36 +223,41 @@ public final class TableImportController extends TableController {
     var entryTime = time - lineIndex;
     return table.generateAvailableContentId()
       .thenCompose(contentId -> insertLine(tableEntry, table, rawHeader,
-        parsedHeader, data, contentId, entryTime));
+        columns, data, contentId, entryTime));
   }
 
   private CompletableFuture<Boolean> insertLine(
     TableEntry tableEntry, Table table, List<String> rawHeader,
-    List<String> parsedHeader, String[] data, UUID contentId, long time
+    List<TableColumn> columns, String[] data, UUID contentId, long time
   ) {
     var cells = Lists.<TableCell>newArrayList();
     cells.add(TableCell.create("owner", tableEntry.owner()));
     cells.add(TableCell.create("timestamp", time));
     cells.add(TableCell.create("id", contentId));
+    var columnIndex = 0;
     for (var i = 0; i < data.length; i++) {
-      var column = rawHeader.get(i);
-      if (!parsedHeader.contains(column)) {
+      var rawColumn = rawHeader.get(i);
+      if (rawColumn.equals("dulno_timestamp") || rawColumn.equals("dulno_id")) {
         continue;
       }
-      cells.add(TableCell.create(column, data[i].replaceAll("\"", "")));
+      cells.add(TableCell.create(columns.get(columnIndex).id(),
+        data[i].replaceAll("\"", "")));
+      columnIndex++;
     }
     return table.insertContent(TableRow.create(errorRepository, cells));
   }
 
   private CompletableFuture<Table> createImportTable(
-    TableEntry entry, List<String> header, SseEmitter emitter
+    TableEntry entry, List<TableColumn> tableColumns, SseEmitter emitter
   ) {
-    var columns = parseImportColumns(header);
-    var table = tableFactory.create(entry, columns);
+    var databaseColumns = parseImportColumns(tableColumns);
+    var table = tableFactory.create(entry, databaseColumns, tableColumns);
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
     processes.add(tableDatabaseTable().insertTable(entry));
+    processes.add(AsyncIterator.execute(tableColumns,
+      tableColumnDatabaseTable::insertColumn).thenApply(value -> null));
     processes.add(table.createAsyncIfNotExists()
-      .thenApply(value -> columns.stream()
+      .thenApply(value -> databaseColumns.stream()
         .filter(column -> !column.name().equals("owner"))
         .map(column -> table.createIndexAsyncIfNotExists(column.name())).toList())
       .thenCompose(indexes -> AsyncIterator.execute(indexes, index -> index)
@@ -226,7 +267,7 @@ public final class TableImportController extends TableController {
       .thenApply(value -> table);
   }
 
-  private List<DatabaseColumn> parseImportColumns(List<String> header) {
+  private List<DatabaseColumn> parseImportColumns(List<TableColumn> tableColumns) {
     var columns = Lists.<DatabaseColumn>newArrayList();
     columns.add(DatabaseColumn.create("owner", DatabaseDataType.UUID,
       DatabaseColumn.Type.PARTITION_KEY));
@@ -234,23 +275,18 @@ public final class TableImportController extends TableController {
       DatabaseColumn.Type.CLUSTERING_KEY));
     columns.add(DatabaseColumn.create("id", DatabaseDataType.UUID,
       DatabaseColumn.Type.CLUSTERING_KEY));
-    for (var column : header) {
-      columns.add(DatabaseColumn.create(column, DatabaseDataType.TEXT));
+    for (var column : tableColumns) {
+      columns.add(DatabaseColumn.create(column.id(), column.type().dataType()));
     }
     return columns;
   }
 
-  private static final Pattern COLUMN_PATTERN =
-    Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*$");
   private static final int MAX_TABLE_COLUMNS = 20;
 
   private List<String> parseImportHeader(String[] header) {
     var result = Lists.<String>newArrayList();
     for (var column : header) {
-      if (column.equals("owner") || column.equals("timestamp") || column.equals("id")) {
-        continue;
-      }
-      if (!COLUMN_PATTERN.matcher(column).matches()) {
+      if (column.equals("dulno_timestamp") || column.equals("dulno_id")) {
         continue;
       }
       result.add(column);
