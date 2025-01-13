@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -161,12 +162,29 @@ public final class TableImportController extends TableController {
       System.currentTimeMillis(), 0);
     var columns = Lists.<TableColumn>newArrayList();
     for (var i = 0; i < columnIds.size(); i++) {
-      columns.add(TableColumn.create(columnIds.get(i), tableId,
-        TableColumnType.TEXT, parsedHeader.get(i)));
+      columns.add(parseTableColumn(columnIds.get(i), tableId, parsedHeader.get(i)));
     }
     createImportTable(entry, columns, emitter)
       .thenAcceptAsync(table -> insertLines(entry, table, tempFile, reader, lines,
         Lists.newArrayList(rawHeader), columns, emitter));
+  }
+
+  private static final Pattern COLUMN_TYPE_PATTERN =
+    Pattern.compile("^(.*)\\(([^)]+)\\)$");
+
+  private TableColumn parseTableColumn(
+    String columnId, String tableId, String header
+  ) {
+    try {
+      Matcher matcher = COLUMN_TYPE_PATTERN.matcher(header);
+      if (matcher.find()) {
+        return TableColumn.create(columnId, tableId,
+          TableColumnType.valueOf(matcher.group(2)), matcher.group(1).trim());
+      }
+      return TableColumn.create(columnId, tableId, TableColumnType.TEXT, header);
+    } catch (Exception exception) {
+      return TableColumn.create(columnId, tableId, TableColumnType.TEXT, header);
+    }
   }
 
   private Path createImportTempFile(String tableId) throws Exception {
@@ -240,24 +258,34 @@ public final class TableImportController extends TableController {
       if (rawColumn.equals("dulno_timestamp") || rawColumn.equals("dulno_id")) {
         continue;
       }
-      cells.add(TableCell.create(columns.get(columnIndex).id(),
-        data[i].replaceAll("\"", "")));
+      cells.add(createTableCell(columns.get(columnIndex), data[i]));
       columnIndex++;
     }
     return table.insertContent(TableRow.create(errorRepository, cells));
   }
 
+  private TableCell createTableCell(TableColumn column, String data) {
+    try {
+      data = data.replaceAll("\"", "");
+      if (column.type().dataType() == DatabaseDataType.BOOLEAN) {
+        return TableCell.create(column.id(), Boolean.parseBoolean(data));
+      }
+      return TableCell.create(column.id(), data);
+    } catch (Exception exception) {
+      return TableCell.create(column.id(), "");
+    }
+  }
+
   private CompletableFuture<Table> createImportTable(
     TableEntry entry, List<TableColumn> tableColumns, SseEmitter emitter
   ) {
-    var databaseColumns = parseImportColumns(tableColumns);
-    var table = tableFactory.create(entry, databaseColumns, tableColumns);
+    var table = tableFactory.create(entry, tableColumns);
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
     processes.add(tableDatabaseTable().insertTable(entry));
     processes.add(AsyncIterator.execute(tableColumns,
       tableColumnDatabaseTable::insertColumn).thenApply(value -> null));
     processes.add(table.createAsyncIfNotExists()
-      .thenApply(value -> databaseColumns.stream()
+      .thenApply(value -> table.columns().stream()
         .filter(column -> !column.name().equals("owner"))
         .map(column -> table.createIndexAsyncIfNotExists(column.name())).toList())
       .thenCompose(indexes -> AsyncIterator.execute(indexes, index -> index)
@@ -265,20 +293,6 @@ public final class TableImportController extends TableController {
     return AsyncIterator.execute(processes, process -> process)
       .thenAccept(value -> sendEmitterMessage(emitter, Map.of("type", "TABLE")))
       .thenApply(value -> table);
-  }
-
-  private List<DatabaseColumn> parseImportColumns(List<TableColumn> tableColumns) {
-    var columns = Lists.<DatabaseColumn>newArrayList();
-    columns.add(DatabaseColumn.create("owner", DatabaseDataType.UUID,
-      DatabaseColumn.Type.PARTITION_KEY));
-    columns.add(DatabaseColumn.create("timestamp", DatabaseDataType.BIGINT,
-      DatabaseColumn.Type.CLUSTERING_KEY));
-    columns.add(DatabaseColumn.create("id", DatabaseDataType.UUID,
-      DatabaseColumn.Type.CLUSTERING_KEY));
-    for (var column : tableColumns) {
-      columns.add(DatabaseColumn.create(column.id(), column.type().dataType()));
-    }
-    return columns;
   }
 
   private static final int MAX_TABLE_COLUMNS = 20;

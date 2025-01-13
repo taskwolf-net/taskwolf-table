@@ -87,26 +87,13 @@ public final class TableCreateController extends TableController {
     var tableColumn = TableColumn.create(columnId, tableId, TableColumnType.TEXT,
       translation.translate(user, "table.column.default"));
     processes.add(tableColumnDatabaseTable.insertColumn(tableColumn));
-    var table = tableFactory.create(entry, createDefaultColumns(columnId),
-      Lists.newArrayList(tableColumn));
+    var table = tableFactory.create(entry, Lists.newArrayList(tableColumn));
     processes.add(table.createAsyncIfNotExists()
       .thenCompose(value -> table.createIndexAsyncIfNotExists("id"))
       .thenCompose(value -> table.createIndexAsyncIfNotExists("timestamp"))
       .thenCompose(value -> table.createIndexAsyncIfNotExists(columnId)));
     return AsyncIterator.execute(processes, process -> process)
       .thenApply(value -> Map.of("table", tableId));
-  }
-
-  private List<DatabaseColumn> createDefaultColumns(String columnId) {
-    var defaultColumns = Lists.<DatabaseColumn>newArrayList();
-    defaultColumns.add(DatabaseColumn.create("owner", DatabaseDataType.UUID,
-      DatabaseColumn.Type.PARTITION_KEY));
-    defaultColumns.add(DatabaseColumn.create("timestamp", DatabaseDataType.BIGINT,
-      DatabaseColumn.Type.CLUSTERING_KEY));
-    defaultColumns.add(DatabaseColumn.create("id", DatabaseDataType.UUID,
-      DatabaseColumn.Type.CLUSTERING_KEY));
-    defaultColumns.add(DatabaseColumn.create(columnId, DatabaseDataType.TEXT));
-    return defaultColumns;
   }
 
   private CompletableFuture<UUID> findTableOwner(User user, UUID target) {
