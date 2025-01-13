@@ -110,7 +110,7 @@ public final class TableModificationController extends TableController {
     var tableId = body.getString("table");
     var rowId = body.getUUID("row");
     var column = body.getString("column");
-    var value = body.getString("value");
+    var value = body.getAny("value");
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performTableOperation(findUserId(request), tableId,
       tableEntry -> tableFactory.create(tableEntry)
@@ -121,7 +121,7 @@ public final class TableModificationController extends TableController {
   }
 
   private CompletableFuture<Map<String, Object>> updateTableEntry(
-    Table table, DatabaseRow row, UUID rowId, String cellColumn, String cellValue
+    Table table, DatabaseRow row, UUID rowId, String cellColumn, Object cellValue
   ) {
     var columns = table.columns();
     if (columns.stream().noneMatch(entry -> entry.name().equals(cellColumn))) {
