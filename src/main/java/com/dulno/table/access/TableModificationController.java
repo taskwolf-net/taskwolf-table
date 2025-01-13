@@ -9,7 +9,6 @@ import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.database.DatabaseColumn;
 import com.dulno.core.database.DatabaseDataType;
 import com.dulno.core.database.DatabaseTable;
 import com.dulno.core.database.condition.DatabaseCondition;
@@ -24,11 +23,11 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
-import java.util.regex.Pattern;
 
 @RestController
 public final class TableModificationController extends TableController {
   private final TableFactory tableFactory;
+  private final TableColumnDatabaseTable tableColumnDatabaseTable;
   private final WorkflowModule workflowModule;
   private final ErrorRepository errorRepository;
 
@@ -37,12 +36,13 @@ public final class TableModificationController extends TableController {
     TableDatabaseTable tableDatabaseTable,
     UserTargetDatabaseTable userTargetDatabaseTable,
     TeamTargetDatabaseTable teamTargetDatabaseTable,
-    TableFactory tableFactory, WorkflowModule workflowModule,
-    ErrorRepository errorRepository
+    TableFactory tableFactory, TableColumnDatabaseTable tableColumnDatabaseTable,
+    WorkflowModule workflowModule, ErrorRepository errorRepository
   ) {
     super(secretKey, userDatabaseTable, tableDatabaseTable,
       userTargetDatabaseTable, teamTargetDatabaseTable);
     this.tableFactory = tableFactory;
+    this.tableColumnDatabaseTable = tableColumnDatabaseTable;
     this.workflowModule = workflowModule;
     this.errorRepository = errorRepository;
   }
@@ -260,6 +260,35 @@ public final class TableModificationController extends TableController {
         "errorCode", 1000));
     }
     return table.dropColumn(columnId).thenApply(value -> Map.of("success", true));
+  }
+
+  @RequestMapping(path = "/table/column/rename/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> renameTableColumn(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = DulnoRequestBody.of(payload, response);
+    var tableId = body.getString("table");
+    var columnId = body.getString("columnId");
+    var columnName = body.getString("columnName", 64);
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    performTableOperation(findUserId(request), tableId,
+      tableEntry -> tableFactory.create(tableEntry)
+        .thenAccept(table -> renameTableColumn(table, columnId, columnName)
+          .thenAccept(futureResponse::complete)),
+      () -> {});
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> renameTableColumn(
+    Table table, String columnId, String columnName
+  ) {
+    if (table.tableColumns().stream().noneMatch(column -> column.id().equals(columnId))) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "errorCode", 1000));
+    }
+    return tableColumnDatabaseTable.changeColumnName(columnId, columnName)
+      .thenApply(value -> Map.of("success", true));
   }
 
   @RequestMapping(path = "/table/rename/", method = RequestMethod.POST)
