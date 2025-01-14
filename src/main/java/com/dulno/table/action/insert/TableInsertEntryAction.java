@@ -1,6 +1,7 @@
 package com.dulno.table.action.insert;
 
 import com.dulno.core.error.ErrorRepository;
+import com.dulno.table.structure.TableColumnDatabaseTable;
 import com.dulno.table.structure.TableFactory;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -24,7 +25,8 @@ import java.util.concurrent.CompletableFuture;
 public final class TableInsertEntryAction implements Action<TableInsertEntryActionExecutor> {
   public static TableInsertEntryAction create(
     InputComponentSelect tableComponentSelect,
-    TableDatabaseTable tableDatabaseTable, TableFactory tableFactory,
+    TableDatabaseTable tableDatabaseTable,
+    TableColumnDatabaseTable tableColumnDatabaseTable, TableFactory tableFactory,
     ErrorRepository errorRepository, DatabaseConnection databaseConnection,
     DatabaseKeyspace databaseKeyspace
   ) {
@@ -33,13 +35,14 @@ public final class TableInsertEntryAction implements Action<TableInsertEntryActi
     contentColumns.add(DatabaseColumn.create("tableId", DatabaseDataType.TEXT));
     contentColumns.add(DatabaseColumn.create("content", DatabaseDataType.TEXT));
     return new TableInsertEntryAction(tableComponentSelect, tableDatabaseTable,
-      tableFactory, errorRepository, ActionContentDatabaseTable.create(
-        databaseConnection, databaseKeyspace, "action_database_entry_insert",
-      contentColumns));
+      tableColumnDatabaseTable, tableFactory, errorRepository,
+      ActionContentDatabaseTable.create(databaseConnection, databaseKeyspace,
+        "action_database_entry_insert", contentColumns));
   }
 
   private final InputComponentSelect tableComponentSelect;
   private final TableDatabaseTable tableDatabaseTable;
+  private final TableColumnDatabaseTable tableColumnDatabaseTable;
   private final TableFactory tableFactory;
   private final ErrorRepository errorRepository;
   private final ActionContentDatabaseTable contentDatabaseTable;
@@ -58,7 +61,7 @@ public final class TableInsertEntryAction implements Action<TableInsertEntryActi
         "tableIdentifier", "table.action.entry.insert.input.table.description", tableComponentSelect))
       .withInputVariable(DynamicInputComponentVariable.create("entryContent",
         Lists.newArrayList("tableIdentifier"),
-        TableInsertEntryActionColumnFunction.create(tableDatabaseTable, tableFactory)))
+        TableInsertEntryActionColumnFunction.create(tableDatabaseTable, tableColumnDatabaseTable)))
       .withOutputVariable(OutputComponentVariable.create("table.action.entry.insert.output.table", "tableName"))
       .withOutputVariable(OutputComponentVariable.create("table.action.entry.insert.output.entry.id", "entryId"))
       .build();

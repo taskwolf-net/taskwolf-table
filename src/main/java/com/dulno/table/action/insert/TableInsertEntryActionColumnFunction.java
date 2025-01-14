@@ -2,16 +2,15 @@ package com.dulno.table.action.insert;
 
 import com.dulno.core.database.DatabaseColumn;
 import com.dulno.core.user.User;
+import com.dulno.table.structure.*;
 import com.dulno.workflow.component.input.DynamicInputComponentVariableFunction;
 import com.dulno.workflow.component.input.InputComponentDataType;
 import com.dulno.workflow.component.input.InputComponentVariable;
-import com.dulno.table.structure.TableDatabaseTable;
-import com.dulno.table.structure.TableEntry;
-import com.dulno.table.structure.TableFactory;
 import com.google.common.collect.Lists;
 import lombok.RequiredArgsConstructor;
 import org.json.JSONObject;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -21,7 +20,7 @@ public final class TableInsertEntryActionColumnFunction
   implements DynamicInputComponentVariableFunction
 {
   private final TableDatabaseTable tableDatabaseTable;
-  private final TableFactory tableFactory;
+  private final TableColumnDatabaseTable tableColumnDatabaseTable;
 
   @Override
   public CompletableFuture<List<InputComponentVariable>> compile(
@@ -48,23 +47,32 @@ public final class TableInsertEntryActionColumnFunction
     if (!tableEntry.owner().equals(target)) {
       return CompletableFuture.completedFuture(Lists.newArrayList());
     }
-    return tableFactory.create(tableEntry)
-      .thenApply(table -> createInputVariables(table.columns()));
+    return tableColumnDatabaseTable.findTableColumns(tableEntry.id())
+      .thenApply(columns -> columns.stream()
+        .sorted(Comparator.comparing(column -> tableEntry.columns()
+          .indexOf(column.id())))
+        .toList())
+      .thenApply(this::createInputVariables);
   }
 
   private List<InputComponentVariable> createInputVariables(
-    List<DatabaseColumn> columns
+    List<TableColumn> columns
   ) {
     var variables = Lists.<InputComponentVariable>newArrayList();
     for (var column : columns) {
-      if (column.name().equals("id") || column.name().equals("timestamp") ||
-        column.name().equals("owner")
-      ) {
-        continue;
-      }
       variables.add(InputComponentVariable.createOptional(column.name(),
-        "column_" + column.name(), "", InputComponentDataType.TEXT));
+        "column_" + column.id(), "", findComponentDataType(column)));
     }
     return variables;
+  }
+
+  private InputComponentDataType findComponentDataType(TableColumn column) {
+    return switch (column.type()) {
+      case TableColumnType.TEXT -> InputComponentDataType.TEXT;
+      case TableColumnType.TEXT_AREA -> InputComponentDataType.TEXT_AREA;
+      case TableColumnType.DATE -> InputComponentDataType.DATE;
+      case TableColumnType.SWITCH -> InputComponentDataType.BOOLEAN;
+      case TableColumnType.CHECKBOX -> InputComponentDataType.BOOLEAN;
+    };
   }
 }

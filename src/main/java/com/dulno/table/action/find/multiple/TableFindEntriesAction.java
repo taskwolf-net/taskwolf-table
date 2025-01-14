@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 public final class TableFindEntriesAction implements Action<TableFindEntriesActionExecutor> {
   public static TableFindEntriesAction create(
     InputComponentSelect tableComponentSelect,
+    InputComponentSelect tableColumnComponentSelect,
     TableDatabaseTable tableDatabaseTable, TableFactory tableFactory,
     DatabaseConnection databaseConnection, DatabaseKeyspace databaseKeyspace
   ) {
@@ -30,12 +31,14 @@ public final class TableFindEntriesAction implements Action<TableFindEntriesActi
     contentColumns.add(DatabaseColumn.create("tableId", DatabaseDataType.TEXT));
     contentColumns.add(DatabaseColumn.create("column", DatabaseDataType.TEXT));
     contentColumns.add(DatabaseColumn.create("value", DatabaseDataType.TEXT));
-    return new TableFindEntriesAction(tableComponentSelect, tableDatabaseTable,
-      tableFactory, ActionContentDatabaseTable.create(databaseConnection,
-      databaseKeyspace, "action_database_entries_find", contentColumns));
+    return new TableFindEntriesAction(tableComponentSelect,
+      tableColumnComponentSelect, tableDatabaseTable, tableFactory,
+      ActionContentDatabaseTable.create(databaseConnection, databaseKeyspace,
+        "action_database_entries_find", contentColumns));
   }
 
   private final InputComponentSelect tableComponentSelect;
+  private final InputComponentSelect tableColumnComponentSelect;
   private final TableDatabaseTable tableDatabaseTable;
   private final TableFactory tableFactory;
   private final ActionContentDatabaseTable contentDatabaseTable;
@@ -52,8 +55,8 @@ public final class TableFindEntriesAction implements Action<TableFindEntriesActi
       .withDescription("table.action.entries.find.description")
       .withInputVariable(InputComponentVariable.createSelect("table.action.entries.find.input.table.name",
         "tableIdentifier", "table.action.entries.find.input.table.description", tableComponentSelect))
-      .withInputVariable(InputComponentVariable.createRequired("table.action.entries.find.input.column.name",
-        "entriesColumn", "table.action.entries.find.input.column.description", InputComponentDataType.TEXT))
+      .withInputVariable(InputComponentVariable.createSelect("table.action.entries.find.input.column.name",
+        "entriesColumn", "table.action.entries.find.input.column.description", tableColumnComponentSelect))
       .withInputVariable(InputComponentVariable.createRequired("table.action.entries.find.input.value.name",
         "entriesValue", "table.action.entries.find.input.value.description", InputComponentDataType.TEXT))
       .withOutputVariable(ListOutputComponentVariable.create("table.action.entries.find.output.entries", "entries",
