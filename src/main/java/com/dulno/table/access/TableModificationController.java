@@ -18,6 +18,7 @@ import com.dulno.core.user.UserTargetDatabaseTable;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Key;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -273,21 +274,55 @@ public final class TableModificationController extends TableController {
     var columnName = body.getString("columnName", 64);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performTableOperation(findUserId(request), tableId,
-      tableEntry -> tableFactory.create(tableEntry)
-        .thenAccept(table -> renameTableColumn(table, columnId, columnName)
-          .thenAccept(futureResponse::complete)),
+      tableEntry -> renameTableColumn(tableEntry, columnId, columnName)
+          .thenAccept(futureResponse::complete),
       () -> {});
     return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> renameTableColumn(
-    Table table, String columnId, String columnName
+    TableEntry entry, String columnId, String columnName
   ) {
-    if (table.tableColumns().stream().noneMatch(column -> column.id().equals(columnId))) {
+    if (!entry.columns().contains(columnId)) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "errorCode", 1000));
     }
     return tableColumnDatabaseTable.changeColumnName(columnId, columnName)
+      .thenApply(value -> Map.of("success", true));
+  }
+
+  @RequestMapping(path = "/table/column/move/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> moveTableColumn(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = DulnoRequestBody.of(payload, response);
+    var tableId = body.getString("table");
+    var sourceColumn = body.getString("sourceColumn");
+    var targetColumn = body.getString("targetColumn");
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    performTableOperation(findUserId(request), tableId,
+      tableEntry -> moveTableColumn(tableEntry, sourceColumn, targetColumn)
+        .thenAccept(futureResponse::complete),
+      () -> {});
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> moveTableColumn(
+    TableEntry entry, String sourceColumn, String targetColumn
+  ) {
+    if (!entry.columns().contains(sourceColumn)) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "errorCode", 1000));
+    }
+    if (!entry.columns().contains(targetColumn)) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "errorCode", 1001));
+    }
+    var columns = Lists.newArrayList(entry.columns());
+    Collections.swap(columns, columns.indexOf(sourceColumn),
+      columns.indexOf(targetColumn));
+    return tableDatabaseTable().updateTableColumns(entry, columns)
       .thenApply(value -> Map.of("success", true));
   }
 
