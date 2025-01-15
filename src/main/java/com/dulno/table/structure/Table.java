@@ -270,7 +270,9 @@ public final class Table extends DatabaseTable {
     CompletableFuture<Void> futureResponse
   ) {
     try {
-      writeCSVPage(page, csvWriter);
+      if (!previousPageState.equals(page.pageState())) {
+        writeCSVPage(page, csvWriter);
+      }
       if (page.pageState().isEmpty() || previousPageState.equals(page.pageState())) {
         csvWriter.close();
         futureResponse.complete(null);
@@ -356,7 +358,8 @@ public final class Table extends DatabaseTable {
     DatabasePage<TableRow> page, long size, String previousPageState,
     CompletableFuture<Void> futureResponse
   ) {
-    var newSize = size + page.content().stream().mapToLong(TableRow::size).sum();
+    var newSize = size + ((!previousPageState.equals(page.pageState())) ?
+      page.content().stream().mapToLong(TableRow::size).sum() : 0);
     if (page.pageState().isEmpty() || previousPageState.equals(page.pageState())) {
       tableSizeDatabaseTable.findSize(entry.id())
         .thenApply(oldSize -> newSize - oldSize)
