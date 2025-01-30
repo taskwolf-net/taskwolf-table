@@ -6,6 +6,8 @@ import com.dulno.table.action.find.multiple.TableFindEntriesAction;
 import com.dulno.table.action.find.single.TableFindEntryAction;
 import com.dulno.table.action.insert.TableInsertEntryAction;
 import com.dulno.table.action.remove.TableRemoveEntryAction;
+import com.dulno.table.select.TableColumnComponentSelect;
+import com.dulno.table.select.TableComponentSelect;
 import com.dulno.table.structure.TableColumnDatabaseTable;
 import com.dulno.table.structure.TableDatabaseTable;
 import com.dulno.table.structure.TableFactory;
@@ -34,6 +36,7 @@ public final class TableModule extends Integration {
   private TableContextInitializer contextInitializer;
   private AccountLink accountLink;
   private InputComponentSelect tableComponentSelect;
+  private InputComponentSelect tableColumnComponentSelect;
 
   public TableModule(Injector injector) {
     super(injector.createChildInjector(TableInjectionModule.create()));
@@ -51,6 +54,8 @@ public final class TableModule extends Integration {
     springApplication.addInitializers(contextInitializer);
     accountLink = TableAccountLink.create();
     tableComponentSelect = TableComponentSelect.create(tableDatabaseTable);
+    tableColumnComponentSelect = TableColumnComponentSelect.create(
+      tableDatabaseTable, tableColumnDatabaseTable);
   }
 
   @Override
@@ -89,21 +94,24 @@ public final class TableModule extends Integration {
     var databaseConnection = injector().getInstance(DatabaseConnection.class);
     var databaseKeyspace = injector().getInstance(DatabaseKeyspace.class);
     var tableDatabaseTable = injector().getInstance(TableDatabaseTable.class);
+    var tableColumnDatabaseTable = injector().getInstance(TableColumnDatabaseTable.class);
     var tableFactory = injector().getInstance(TableFactory.class);
     var errorRepository = injector().getInstance(ErrorRepository.class);
     var repository = ActionRepository.create();
     repository.registerAction(TableInsertEntryAction.create(tableComponentSelect,
-      tableDatabaseTable, tableFactory, errorRepository, databaseConnection,
-      databaseKeyspace));
+      tableDatabaseTable, tableColumnDatabaseTable, tableFactory, errorRepository,
+      databaseConnection, databaseKeyspace));
     repository.registerAction(TableRemoveEntryAction.create(tableComponentSelect,
       tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
     repository.registerAction(TableCheckEntryExistenceAction.create(
-      tableComponentSelect, tableDatabaseTable, tableFactory, databaseConnection,
-      databaseKeyspace));
+      tableComponentSelect, tableColumnComponentSelect, tableDatabaseTable,
+      tableFactory, databaseConnection, databaseKeyspace));
     repository.registerAction(TableFindEntryAction.create(tableComponentSelect,
-      tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
+      tableColumnComponentSelect, tableDatabaseTable, tableFactory,
+      databaseConnection, databaseKeyspace));
     repository.registerAction(TableFindEntriesAction.create(tableComponentSelect,
-      tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
+      tableColumnComponentSelect, tableDatabaseTable, tableFactory,
+      databaseConnection, databaseKeyspace));
     return repository;
   }
 }

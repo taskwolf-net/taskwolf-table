@@ -82,7 +82,7 @@ public final class TableFindEntryActionExecutor implements ActionExecutor {
       return ActionResult.futureFailure("table.action.entry.find.failure.entry.not.found");
     }
     return table.selectRow(condition).thenApply(row ->
-      ActionResult.success(buildInformation(table, row.findCell(1).uuidValue(),
+      ActionResult.success(buildInformation(table, row.findCell(2).uuidValue(),
         createCells(table, row))));
   }
 
@@ -90,10 +90,10 @@ public final class TableFindEntryActionExecutor implements ActionExecutor {
     Table table, DatabaseRow row
   ) {
     var cells = Lists.<Map<String, Object>>newArrayList();
-    var columns = table.columns();
-    for (var i = 2; i < columns.size(); i++) {
-      cells.add(Map.of("entryCellColumn", columns.get(i).name().toLowerCase(),
-        "entryCellValue", row.findCell(i).rawValue()));
+    var columns = table.tableColumns();
+    for (var i = 0; i < columns.size(); i++) {
+      cells.add(Map.of("entryCellColumn", columns.get(i).name(),
+        "entryCellValue", row.findCell(i + 3).rawValue()));
     }
     return cells;
   }

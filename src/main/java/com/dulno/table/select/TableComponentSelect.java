@@ -1,4 +1,4 @@
-package com.dulno.table;
+package com.dulno.table.select;
 
 import com.dulno.table.structure.TableDatabaseTable;
 import lombok.RequiredArgsConstructor;

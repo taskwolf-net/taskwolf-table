@@ -65,18 +65,13 @@ public final class TableFactory {
         userDatabaseTable, organizationDatabaseTable, teamDatabaseTable,
         bundleDatabaseTable, tableDatabaseTable, tableColumnDatabaseTable,
         tableUsageDatabaseTable, tableSizeDatabaseTable, errorRepository,
-        Lists.newArrayList(), entry, columns))
-      .thenCompose(table -> table.equipTableColumns().thenApply(value -> table));
+        entry, columns));
   }
 
-  public Table create(
-    TableEntry entry, List<DatabaseColumn> databaseColumns,
-    List<TableColumn> tableColumns
-    ) {
+  public Table create(TableEntry entry, List<TableColumn> tableColumns) {
     return Table.create(tableConnection, tableKeyspace, userDatabaseTable,
       organizationDatabaseTable, teamDatabaseTable, bundleDatabaseTable,
       tableDatabaseTable, tableColumnDatabaseTable, tableUsageDatabaseTable,
-      tableSizeDatabaseTable, errorRepository, databaseColumns, entry,
-      tableColumns);
+      tableSizeDatabaseTable, errorRepository, entry, tableColumns);
   }
 }

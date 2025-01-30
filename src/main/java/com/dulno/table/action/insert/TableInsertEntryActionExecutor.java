@@ -1,6 +1,7 @@
 package com.dulno.table.action.insert;
 
 import com.datastax.oss.driver.shaded.guava.common.collect.Maps;
+import com.dulno.core.database.DatabaseDataType;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.table.structure.*;
 import com.google.common.collect.Lists;
@@ -68,19 +69,28 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
     TableEntry tableEntry, Table table, UUID contentId
   ) {
     var content = new JSONObject(entryContent);
-    var tableColumns = table.columns().stream().map(DatabaseColumn::name).toList();
+    var tableColumns = table.tableColumns();
     var cells = Lists.<TableCell>newArrayList();
     cells.add(TableCell.create("owner", tableEntry.owner()));
     cells.add(TableCell.create("timestamp", System.currentTimeMillis()));
     cells.add(TableCell.create("id", contentId));
     for (var column : tableColumns) {
-      if (column.equals("id") || column.equals("timestamp") || column.equals("owner")) {
-        continue;
-      }
-      cells.add(TableCell.create(column, content.has(column) ?
-        content.getString(column) : ""));
+      cells.add(TableCell.create(column.id(), findCellValue(content, column)));
     }
     return cells;
+  }
+
+  private Object findCellValue(JSONObject content, TableColumn column) {
+    if (!content.has(column.id())) {
+      if (column.type().dataType() == DatabaseDataType.BOOLEAN) {
+        return false;
+      }
+      return "";
+    }
+    if (column.type().dataType() == DatabaseDataType.BOOLEAN) {
+      return content.getBoolean(column.id());
+    }
+    return content.getString(column.id());
   }
 
   private Map<String, Object> buildInformation(Table table, UUID entryId) {

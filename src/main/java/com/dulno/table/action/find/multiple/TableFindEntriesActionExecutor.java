@@ -67,7 +67,7 @@ public final class TableFindEntriesActionExecutor implements ActionExecutor {
     return table.selectRows(condition, ENTRY_LIMIT)
       .thenApply(rows -> ActionResult.success(buildInformation(table,
         rows.stream()
-          .map(row -> Map.of("entryId", (Object) row.findCell(1).uuidValue()))
+          .map(row -> Map.of("entryId", (Object) row.findCell(2).uuidValue()))
           .toList())));
   }
 

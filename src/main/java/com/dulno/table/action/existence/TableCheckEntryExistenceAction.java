@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 public final class TableCheckEntryExistenceAction implements Action<TableCheckEntryExistenceActionExecutor> {
   public static TableCheckEntryExistenceAction create(
     InputComponentSelect tableComponentSelect,
+    InputComponentSelect tableColumnComponentSelect,
     TableDatabaseTable tableDatabaseTable, TableFactory tableFactory,
     DatabaseConnection databaseConnection, DatabaseKeyspace databaseKeyspace
   ) {
@@ -29,12 +30,14 @@ public final class TableCheckEntryExistenceAction implements Action<TableCheckEn
     contentColumns.add(DatabaseColumn.create("tableId", DatabaseDataType.TEXT));
     contentColumns.add(DatabaseColumn.create("column", DatabaseDataType.TEXT));
     contentColumns.add(DatabaseColumn.create("value", DatabaseDataType.TEXT));
-    return new TableCheckEntryExistenceAction(tableComponentSelect, tableDatabaseTable,
-      tableFactory, ActionContentDatabaseTable.create(databaseConnection,
-      databaseKeyspace, "action_database_check_entry_existence", contentColumns));
+    return new TableCheckEntryExistenceAction(tableComponentSelect,
+      tableColumnComponentSelect, tableDatabaseTable, tableFactory,
+      ActionContentDatabaseTable.create(databaseConnection, databaseKeyspace,
+        "action_database_check_entry_existence", contentColumns));
   }
 
   private final InputComponentSelect tableComponentSelect;
+  private final InputComponentSelect tableColumnComponentSelect;
   private final TableDatabaseTable tableDatabaseTable;
   private final TableFactory tableFactory;
   private final ActionContentDatabaseTable contentDatabaseTable;
@@ -51,8 +54,8 @@ public final class TableCheckEntryExistenceAction implements Action<TableCheckEn
       .withDescription("table.action.check.entry.existence.description")
       .withInputVariable(InputComponentVariable.createSelect("table.action.check.entry.existence.input.table.name",
         "tableIdentifier", "table.action.check.entry.existence.input.table.description", tableComponentSelect))
-      .withInputVariable(InputComponentVariable.createRequired("table.action.check.entry.existence.input.column.name",
-        "entryColumn", "table.action.check.entry.existence.input.column.description", InputComponentDataType.TEXT))
+      .withInputVariable(InputComponentVariable.createSelect("table.action.check.entry.existence.input.column.name",
+        "entryColumn", "table.action.check.entry.existence.input.column.description", tableColumnComponentSelect))
       .withInputVariable(InputComponentVariable.createRequired("table.action.check.entry.existence.input.value.name",
         "entryValue", "table.action.check.entry.existence.input.value.description", InputComponentDataType.TEXT))
       .withOutputVariable(OutputComponentVariable.create("table.action.check.entry.existence.output.exists", "entryExists"))

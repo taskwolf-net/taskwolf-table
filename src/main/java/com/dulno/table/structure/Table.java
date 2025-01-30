@@ -1,6 +1,5 @@
 package com.dulno.table.structure;
 
-import com.datastax.oss.driver.api.core.cql.Row;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.iterator.AsyncIterator;
 import com.google.common.collect.Lists;
@@ -19,6 +18,7 @@ import com.opencsv.CSVWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -34,10 +34,19 @@ public final class Table extends DatabaseTable {
     TableColumnDatabaseTable tableColumnDatabaseTable,
     TableUsageDatabaseTable tableUsageDatabaseTable,
     TableSizeDatabaseTable tableSizeDatabaseTable, ErrorRepository errorRepository,
-    List<DatabaseColumn> databaseColumns, TableEntry entry,
-    List<TableColumn> tableColumns
+    TableEntry entry, List<TableColumn> tableColumns
   ) {
-    return new Table(connection, keyspace, entry.id(), databaseColumns,
+    var columns = Lists.<DatabaseColumn>newArrayList();
+    columns.add(DatabaseColumn.create("owner", DatabaseDataType.UUID,
+      DatabaseColumn.Type.PARTITION_KEY));
+    columns.add(DatabaseColumn.create("timestamp", DatabaseDataType.BIGINT,
+      DatabaseColumn.Type.CLUSTERING_KEY));
+    columns.add(DatabaseColumn.create("id", DatabaseDataType.UUID,
+      DatabaseColumn.Type.CLUSTERING_KEY));
+    for (var column : tableColumns) {
+      columns.add(DatabaseColumn.create(column.id(), column.type().dataType()));
+    }
+    return new Table(connection, keyspace, entry.id(), columns,
       userDatabaseTable, organizationDatabaseTable, teamDatabaseTable,
       bundleDatabaseTable, tableDatabaseTable, tableColumnDatabaseTable,
       tableUsageDatabaseTable, tableSizeDatabaseTable, errorRepository, entry,
@@ -227,57 +236,6 @@ public final class Table extends DatabaseTable {
         "timestamp", row.findCell(1).longValue(), "id", id)));
   }
 
-  public CompletableFuture<Void> equipTableColumns() {
-    var query = new StringBuilder("SELECT * FROM system_schema.columns WHERE ");
-    query.append("keyspace_name = '");
-    query.append(keyspace().name());
-    query.append("' AND table_name = '");
-    query.append(name());
-    query.append("';");
-    return connection().execute(query)
-      .thenApply(result -> createDatabaseColumns(result.currentPage()))
-      .thenAccept(this::fillColumns);
-  }
-
-  private List<DatabaseColumn> createDatabaseColumns(Iterable<Row> rows) {
-    var columns = Lists.<DatabaseColumn>newArrayList();
-    columns.add(DatabaseColumn.create("owner", DatabaseDataType.UUID,
-      DatabaseColumn.Type.PARTITION_KEY));
-    columns.add(DatabaseColumn.create("timestamp", DatabaseDataType.BIGINT,
-      DatabaseColumn.Type.CLUSTERING_KEY));
-    columns.add(DatabaseColumn.create("id", DatabaseDataType.UUID,
-      DatabaseColumn.Type.CLUSTERING_KEY));
-    for (var row : rows) {
-      var column = createDatabaseColumnEntry(row);
-      if (column.name().equalsIgnoreCase("id") ||
-        column.name().equalsIgnoreCase("timestamp") ||
-        column.name().equalsIgnoreCase("owner")
-      ) {
-        continue;
-      }
-      columns.add(column);
-    }
-    return columns;
-  }
-
-  private DatabaseColumn createDatabaseColumnEntry(Row row) {
-    var columnName = row.getString("column_name");
-    var kind = row.getString("kind");
-    var columnType = switch (kind) {
-      case "partition_key" -> DatabaseColumn.Type.PARTITION_KEY;
-      case "clustering" -> DatabaseColumn.Type.CLUSTERING_KEY;
-      default -> DatabaseColumn.Type.REGULAR;
-    };
-    var dataType = row.getString("type").toUpperCase();
-    if (dataType.contains("LIST")) {
-      return DatabaseListColumn.create(columnName, DatabaseDataType.valueOf(
-        dataType.replace("LIST", "").replace("<", "").replace(">", "")),
-        columnType);
-    }
-    return DatabaseColumn.create(columnName, DatabaseDataType.valueOf(dataType),
-      columnType);
-  }
-
   public CompletableFuture<File> download() {
     try {
       var file = new File(System.getProperty("user.dir") + "/table/" +
@@ -302,7 +260,7 @@ public final class Table extends DatabaseTable {
     header.add("dulno_timestamp");
     header.add("dulno_id");
     for (var column : tableColumns) {
-      header.add(column.name());
+      header.add(column.name() + " (" + column.type() + ")");
     }
     return header.toArray(String[]::new);
   }
@@ -312,7 +270,9 @@ public final class Table extends DatabaseTable {
     CompletableFuture<Void> futureResponse
   ) {
     try {
-      writeCSVPage(page, csvWriter);
+      if (!previousPageState.equals(page.pageState())) {
+        writeCSVPage(page, csvWriter);
+      }
       if (page.pageState().isEmpty() || previousPageState.equals(page.pageState())) {
         csvWriter.close();
         futureResponse.complete(null);
@@ -398,7 +358,8 @@ public final class Table extends DatabaseTable {
     DatabasePage<TableRow> page, long size, String previousPageState,
     CompletableFuture<Void> futureResponse
   ) {
-    var newSize = size + page.content().stream().mapToLong(TableRow::size).sum();
+    var newSize = size + ((!previousPageState.equals(page.pageState())) ?
+      page.content().stream().mapToLong(TableRow::size).sum() : 0);
     if (page.pageState().isEmpty() || previousPageState.equals(page.pageState())) {
       tableSizeDatabaseTable.findSize(entry.id())
         .thenApply(oldSize -> newSize - oldSize)
