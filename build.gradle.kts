@@ -79,7 +79,7 @@ dependencies {
 
   compileOnly("org.springframework.boot:spring-boot-starter-web:3.4.1")
 
-  implementation("com.opencsv:opencsv:5.9")
+  implementation("com.opencsv:opencsv:5.10")
 }
 
 tasks.test {
