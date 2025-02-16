@@ -1,7 +1,6 @@
 package com.dulno.table.access;
 
 import com.dulno.core.bundle.BundleDatabaseTable;
-import com.dulno.core.database.DatabaseColumn;
 import com.dulno.core.database.DatabaseDataType;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.iterator.AsyncIterator;

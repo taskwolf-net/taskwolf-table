@@ -1,19 +1,19 @@
 package com.dulno.table;
 
+import com.dulno.core.database.DatabaseConfiguration;
+import com.dulno.core.database.DatabaseConnection;
+import com.dulno.core.database.DatabaseKeyspace;
 import com.dulno.core.error.ErrorRepository;
+import com.dulno.core.log.Log;
 import com.dulno.table.structure.TableColumnDatabaseTable;
+import com.dulno.table.structure.TableDatabaseTable;
 import com.dulno.table.structure.TableSizeDatabaseTable;
+import com.dulno.table.structure.TableUsageDatabaseTable;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.google.inject.name.Named;
 import lombok.RequiredArgsConstructor;
-import com.dulno.core.database.DatabaseConfiguration;
-import com.dulno.core.database.DatabaseConnection;
-import com.dulno.core.database.DatabaseKeyspace;
-import com.dulno.core.log.Log;
-import com.dulno.table.structure.TableDatabaseTable;
-import com.dulno.table.structure.TableUsageDatabaseTable;
 
 @RequiredArgsConstructor(staticName = "create")
 public class TableInjectionModule extends AbstractModule {

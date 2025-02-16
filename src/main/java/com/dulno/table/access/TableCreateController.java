@@ -2,8 +2,6 @@ package com.dulno.table.access;
 
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.bundle.BundleDatabaseTable;
-import com.dulno.core.database.DatabaseColumn;
-import com.dulno.core.database.DatabaseDataType;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.locale.Translation;
 import com.dulno.core.organization.team.Team;
@@ -17,7 +15,10 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.util.List;

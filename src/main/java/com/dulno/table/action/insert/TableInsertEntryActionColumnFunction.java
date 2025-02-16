@@ -1,6 +1,5 @@
 package com.dulno.table.action.insert;
 
-import com.dulno.core.database.DatabaseColumn;
 import com.dulno.core.user.User;
 import com.dulno.table.structure.*;
 import com.dulno.workflow.component.input.DynamicInputComponentVariableFunction;

@@ -1,11 +1,11 @@
 package com.dulno.table.structure;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.experimental.Accessors;
 import com.dulno.core.database.DatabaseColumn;
 import com.dulno.core.database.DatabaseRow;
 import com.dulno.core.database.DatabaseTable;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.experimental.Accessors;
 
 import java.util.List;
 import java.util.UUID;

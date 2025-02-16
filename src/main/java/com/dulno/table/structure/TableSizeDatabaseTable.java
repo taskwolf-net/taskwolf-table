@@ -1,7 +1,7 @@
 package com.dulno.table.structure;
 
-import com.google.common.collect.Lists;
 import com.dulno.core.database.*;
+import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

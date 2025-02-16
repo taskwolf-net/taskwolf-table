@@ -1,20 +1,20 @@
 package com.dulno.table.action.insert;
 
+import com.dulno.core.database.*;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.table.structure.TableColumnDatabaseTable;
+import com.dulno.table.structure.TableDatabaseTable;
 import com.dulno.table.structure.TableFactory;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import lombok.AllArgsConstructor;
 import com.dulno.workflow.action.Action;
 import com.dulno.workflow.action.ActionContentDatabaseTable;
 import com.dulno.workflow.action.ActionInformation;
-import com.dulno.core.database.*;
+import com.dulno.workflow.component.input.DynamicInputComponentVariable;
 import com.dulno.workflow.component.input.InputComponentSelect;
 import com.dulno.workflow.component.input.InputComponentVariable;
-import com.dulno.workflow.component.input.DynamicInputComponentVariable;
 import com.dulno.workflow.component.output.OutputComponentVariable;
-import com.dulno.table.structure.TableDatabaseTable;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import lombok.AllArgsConstructor;
 import org.json.JSONObject;
 
 import java.util.Map;

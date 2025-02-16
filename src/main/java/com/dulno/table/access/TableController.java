@@ -1,15 +1,15 @@
 package com.dulno.table.access;
 
-import com.dulno.table.structure.TableDatabaseTable;
-import com.dulno.table.structure.TableEntry;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.experimental.Accessors;
 import com.dulno.core.access.DulnoRestController;
 import com.dulno.core.organization.team.TeamTargetDatabaseTable;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserTargetDatabaseTable;
+import com.dulno.table.structure.TableDatabaseTable;
+import com.dulno.table.structure.TableEntry;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.experimental.Accessors;
 
 import java.security.Key;
 import java.util.UUID;

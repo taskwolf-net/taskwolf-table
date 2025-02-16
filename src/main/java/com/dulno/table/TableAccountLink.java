@@ -1,9 +1,9 @@
 package com.dulno.table;
 
+import com.dulno.core.account.AccountLink;
 import com.dulno.core.account.AccountLinkEntry;
 import com.google.common.collect.Lists;
 import lombok.RequiredArgsConstructor;
-import com.dulno.core.account.AccountLink;
 
 import java.util.List;
 import java.util.UUID;
