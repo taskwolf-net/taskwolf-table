@@ -1,24 +1,23 @@
 package com.dulno.table.structure;
 
-import com.dulno.core.error.ErrorRepository;
-import com.dulno.core.iterator.AsyncIterator;
-import com.google.common.collect.Lists;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.database.*;
 import com.dulno.core.database.condition.DatabaseCondition;
 import com.dulno.core.database.paging.DatabaseDirection;
 import com.dulno.core.database.paging.DatabaseOrder;
 import com.dulno.core.database.paging.DatabasePage;
+import com.dulno.core.error.ErrorRepository;
+import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.organization.OrganizationDatabaseTable;
 import com.dulno.core.organization.team.Team;
 import com.dulno.core.organization.team.TeamDatabaseTable;
 import com.dulno.core.user.UserDatabaseTable;
+import com.google.common.collect.Lists;
 import com.opencsv.CSVWriter;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -93,19 +92,19 @@ public final class Table extends DatabaseTable {
   public CompletableFuture<Boolean> insertContent(TableRow row) {
     var sizeAddition = row.size();
     return findTableBundleOwner().thenCompose(bundleOwner ->
-      checkDatabaseSizeLimit(bundleOwner, sizeAddition).thenApply(limitReached ->
+      checkDatabaseSizeLimit(bundleOwner, sizeAddition).thenCompose(limitReached ->
         insertContent(row, bundleOwner, sizeAddition, limitReached)));
   }
 
-  private boolean insertContent(
+  private CompletableFuture<Boolean> insertContent(
     TableRow row, UUID bundleOwner, long sizeAddition, boolean limitReached
   ) {
     if (limitReached) {
-      return false;
+      return CompletableFuture.completedFuture(false);
     }
-    updateTableSize(sizeAddition, bundleOwner);
-    insert(DatabaseRow.of(createRowValues(row)));
-    return true;
+    return insert(DatabaseRow.of(createRowValues(row)))
+      .thenCompose(value -> updateTableSize(sizeAddition, bundleOwner))
+      .thenApply(value -> true);
   }
 
   public CompletableFuture<UUID> generateAvailableContentId() {
@@ -128,22 +127,22 @@ public final class Table extends DatabaseTable {
     var previusTableRow = TableRow.of(errorRepository, previousRow, columns());
     var sizeAddition = newRow.size() - previusTableRow.size();
     return checkDatabaseSizeLimit(bundleOwner, sizeAddition)
-      .thenApply(limitReached -> updateContent(id, previousRow, newRow,
+      .thenCompose(limitReached -> updateContent(id, previousRow, newRow,
         bundleOwner, sizeAddition, limitReached));
   }
 
-  private boolean updateContent(
+  private CompletableFuture<Boolean> updateContent(
     UUID id, DatabaseRow previousRow, TableRow newRow, UUID bundleOwner,
     long sizeAddition, boolean limitReached
   ) {
     if (limitReached) {
-      return false;
+      return CompletableFuture.completedFuture(false);
     }
-    updateTableSize(sizeAddition, bundleOwner);
-    update(DatabaseCondition.of("owner", entry.owner(), "timestamp",
-        previousRow.findCell(1).longValue(), "id", id),
-      DatabaseRow.of(createRowValues(newRow)));
-    return true;
+    return update(DatabaseCondition.of("owner", entry.owner(),
+        "timestamp", previousRow.findCell(1).longValue(), "id", id),
+      DatabaseRow.of(createRowValues(newRow)))
+      .thenCompose(value -> updateTableSize(sizeAddition, bundleOwner))
+      .thenApply(value -> true);
   }
 
   private CompletableFuture<Boolean> checkDatabaseSizeLimit(
@@ -247,7 +246,7 @@ public final class Table extends DatabaseTable {
       csvWriter.writeNext(createCSVHeader());
       var futureResponse = new CompletableFuture<Void>();
       firstContentPage(MAX_PAGE_SIZE).thenAccept(page ->
-        appendCSVRows(page, csvWriter, "", futureResponse));
+        appendCSVRows(page, csvWriter, futureResponse));
       return futureResponse.thenApply(value -> file);
     } catch (Exception exception) {
       errorRepository.processError(exception);
@@ -266,20 +265,18 @@ public final class Table extends DatabaseTable {
   }
 
   private void appendCSVRows(
-    DatabasePage<TableRow> page, CSVWriter csvWriter, String previousPageState,
+    DatabasePage<TableRow> page, CSVWriter csvWriter,
     CompletableFuture<Void> futureResponse
   ) {
     try {
-      if (!previousPageState.equals(page.pageState())) {
-        writeCSVPage(page, csvWriter);
-      }
-      if (page.pageState().isEmpty() || previousPageState.equals(page.pageState())) {
+      writeCSVPage(page, csvWriter);
+      if (page.pageState().isEmpty()) {
         csvWriter.close();
         futureResponse.complete(null);
         return;
       }
       nextContentPage(page.pageState(), MAX_PAGE_SIZE).thenAccept(nextPage ->
-        appendCSVRows(nextPage, csvWriter, page.pageState(), futureResponse));
+        appendCSVRows(nextPage, csvWriter, futureResponse));
     } catch (Exception exception) {
       errorRepository.processError(exception);
       futureResponse.complete(null);
@@ -350,17 +347,15 @@ public final class Table extends DatabaseTable {
   private CompletableFuture<Void> recalculateTableSize() {
     var futureResponse = new CompletableFuture<Void>();
     firstContentPage(MAX_PAGE_SIZE)
-      .thenAccept(page -> recalculateTableSize(page, 0L, "", futureResponse));
+      .thenAccept(page -> recalculateTableSize(page, 0L, futureResponse));
     return futureResponse;
   }
 
   private void recalculateTableSize(
-    DatabasePage<TableRow> page, long size, String previousPageState,
-    CompletableFuture<Void> futureResponse
+    DatabasePage<TableRow> page, long size, CompletableFuture<Void> futureResponse
   ) {
-    var newSize = size + ((!previousPageState.equals(page.pageState())) ?
-      page.content().stream().mapToLong(TableRow::size).sum() : 0);
-    if (page.pageState().isEmpty() || previousPageState.equals(page.pageState())) {
+    var newSize = size + page.content().stream().mapToLong(TableRow::size).sum();
+    if (page.pageState().isEmpty()) {
       tableSizeDatabaseTable.findSize(entry.id())
         .thenApply(oldSize -> newSize - oldSize)
         .thenAccept(sizeAddition -> findTableBundleOwner()
@@ -369,7 +364,7 @@ public final class Table extends DatabaseTable {
       return;
     }
     nextContentPage(page.pageState(), MAX_PAGE_SIZE).thenAccept(nextPage ->
-      recalculateTableSize(page, newSize, page.pageState(), futureResponse));
+      recalculateTableSize(nextPage, newSize, futureResponse));
   }
 
   @Override

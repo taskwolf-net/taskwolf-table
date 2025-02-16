@@ -1,17 +1,15 @@
 package com.dulno.table.structure;
 
-import com.dulno.core.error.ErrorRepository;
-import com.google.common.collect.Lists;
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
-import com.google.inject.name.Named;
 import com.dulno.core.bundle.BundleDatabaseTable;
-import com.dulno.core.database.DatabaseColumn;
 import com.dulno.core.database.DatabaseConnection;
 import com.dulno.core.database.DatabaseKeyspace;
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.organization.OrganizationDatabaseTable;
 import com.dulno.core.organization.team.TeamDatabaseTable;
 import com.dulno.core.user.UserDatabaseTable;
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
+import com.google.inject.name.Named;
 
 import java.util.Comparator;
 import java.util.List;

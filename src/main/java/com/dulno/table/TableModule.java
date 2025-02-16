@@ -1,6 +1,13 @@
 package com.dulno.table;
 
+import com.dulno.core.account.AccountLink;
+import com.dulno.core.database.DatabaseConnection;
+import com.dulno.core.database.DatabaseKeyspace;
 import com.dulno.core.error.ErrorRepository;
+import com.dulno.core.log.Log;
+import com.dulno.core.module.ModuleDescription;
+import com.dulno.core.module.ModuleInformation;
+import com.dulno.core.module.ModuleLoadPriority;
 import com.dulno.table.action.existence.TableCheckEntryExistenceAction;
 import com.dulno.table.action.find.multiple.TableFindEntriesAction;
 import com.dulno.table.action.find.single.TableFindEntryAction;
@@ -13,19 +20,12 @@ import com.dulno.table.structure.TableDatabaseTable;
 import com.dulno.table.structure.TableFactory;
 import com.dulno.table.trigger.insert.TableInsertEntryTrigger;
 import com.dulno.table.trigger.remove.TableRemoveEntryTrigger;
+import com.dulno.workflow.action.ActionRepository;
+import com.dulno.workflow.component.input.InputComponentSelect;
 import com.dulno.workflow.integration.Integration;
+import com.dulno.workflow.trigger.TriggerRepository;
 import com.google.common.collect.Lists;
 import com.google.inject.Injector;
-import com.dulno.core.account.AccountLink;
-import com.dulno.workflow.action.ActionRepository;
-import com.dulno.core.database.DatabaseConnection;
-import com.dulno.core.database.DatabaseKeyspace;
-import com.dulno.core.log.Log;
-import com.dulno.core.module.ModuleDescription;
-import com.dulno.core.module.ModuleInformation;
-import com.dulno.core.module.ModuleLoadPriority;
-import com.dulno.workflow.trigger.TriggerRepository;
-import com.dulno.workflow.component.input.InputComponentSelect;
 import org.springframework.boot.SpringApplication;
 
 @ModuleDescription(name = "table", version = "1.0.0-SNAPSHOT",

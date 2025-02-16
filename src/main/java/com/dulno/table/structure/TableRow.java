@@ -1,15 +1,13 @@
 package com.dulno.table.structure;
 
+import com.dulno.core.database.DatabaseColumn;
+import com.dulno.core.database.DatabaseRow;
 import com.dulno.core.error.ErrorRepository;
 import com.google.common.collect.Lists;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
-import com.dulno.core.database.DatabaseColumn;
-import com.dulno.core.database.DatabaseRow;
 
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;

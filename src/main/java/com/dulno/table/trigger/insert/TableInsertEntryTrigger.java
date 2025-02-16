@@ -1,16 +1,16 @@
 package com.dulno.table.trigger.insert;
 
-import com.dulno.table.structure.TableDatabaseTable;
-import com.google.common.collect.Lists;
-import lombok.RequiredArgsConstructor;
 import com.dulno.core.database.*;
 import com.dulno.core.database.condition.DatabaseCondition;
-import com.dulno.workflow.trigger.Trigger;
-import com.dulno.workflow.trigger.TriggerContentDatabaseTable;
-import com.dulno.workflow.trigger.TriggerInformation;
+import com.dulno.table.structure.TableDatabaseTable;
 import com.dulno.workflow.component.input.InputComponentSelect;
 import com.dulno.workflow.component.input.InputComponentVariable;
 import com.dulno.workflow.component.output.OutputComponentVariable;
+import com.dulno.workflow.trigger.Trigger;
+import com.dulno.workflow.trigger.TriggerContentDatabaseTable;
+import com.dulno.workflow.trigger.TriggerInformation;
+import com.google.common.collect.Lists;
+import lombok.RequiredArgsConstructor;
 
 import java.util.List;
 import java.util.Map;
