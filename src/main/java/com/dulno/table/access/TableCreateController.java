@@ -59,7 +59,7 @@ public final class TableCreateController extends TableController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var name = body.getString("name", 64);
+    var name = body.getSanitizedString("name", 64);
     if (name.isEmpty()) {
       return CompletableFuture.completedFuture(null);
     }

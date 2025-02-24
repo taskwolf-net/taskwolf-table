@@ -216,7 +216,7 @@ public final class TableModificationController extends TableController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var tableId = body.getString("table");
-    var columnName = body.getString("columnName", 64);
+    var columnName = body.getSanitizedString("columnName", 64);
     var columnType = TableColumnType.valueOf(body.getString("columnType"));
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performTableOperation(findUserId(request), tableId,
@@ -274,7 +274,7 @@ public final class TableModificationController extends TableController {
     var body = DulnoRequestBody.of(payload, response);
     var tableId = body.getString("table");
     var columnId = body.getString("columnId");
-    var columnName = body.getString("columnName", 64);
+    var columnName = body.getSanitizedString("columnName", 64);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performTableOperation(findUserId(request), tableId,
       tableEntry -> renameTableColumn(tableEntry, columnId, columnName)
@@ -336,7 +336,7 @@ public final class TableModificationController extends TableController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var tableId = body.getString("table");
-    var tableName = body.getString("name", 64);
+    var tableName = body.getSanitizedString("name", 64);
     if (tableName.replace(" ", "").isEmpty()) {
       return;
     }
