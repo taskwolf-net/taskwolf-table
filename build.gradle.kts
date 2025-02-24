@@ -79,6 +79,8 @@ dependencies {
 
   compileOnly("org.springframework.boot:spring-boot-starter-web:3.4.3")
 
+  compileOnly("com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20240325.1")
+
   implementation("com.opencsv:opencsv:5.10")
 }
 

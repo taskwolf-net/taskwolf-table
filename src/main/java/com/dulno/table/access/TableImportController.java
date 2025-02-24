@@ -14,6 +14,8 @@ import com.dulno.table.structure.*;
 import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import org.json.JSONObject;
+import org.owasp.html.HtmlPolicyBuilder;
+import org.owasp.html.PolicyFactory;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -44,6 +46,7 @@ public final class TableImportController extends TableController {
   private final BundleDatabaseTable bundleDatabaseTable;
   private final TeamDatabaseTable teamDatabaseTable;
   private final ErrorRepository errorRepository;
+  private final PolicyFactory sanitizerPolicy = new HtmlPolicyBuilder().toFactory();
 
   private TableImportController(
     Key secretKey, UserDatabaseTable userDatabaseTable,
@@ -76,7 +79,8 @@ public final class TableImportController extends TableController {
       response.setHeader("X-Accel-Buffering", "no");
     }
     var emitter = new SseEmitter(-1L);
-    var formattedName = name.substring(0, Math.min(64, name.length()));
+    var formattedName = sanitizerPolicy.sanitize(
+      name.substring(0, Math.min(64, name.length())));
     if (formattedName.isEmpty() || file.isEmpty()) {
       emitter.complete();
       return emitter;
