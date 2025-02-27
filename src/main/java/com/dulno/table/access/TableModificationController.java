@@ -88,7 +88,7 @@ public final class TableModificationController extends TableController {
     }
     workflowModule.triggerWorkflows("table", "database-entry-insert-trigger",
       DatabaseCondition.of("tableId", tableEntry.id()),
-      tableInsertInformation(table, contentId));
+      tableInsertInformation(table, contentId), false);
     return table.insertContent(TableRow.create(errorRepository, cells))
       .thenApply(success -> finishTableEntryInsertion(success, contentId));
   }
@@ -183,7 +183,7 @@ public final class TableModificationController extends TableController {
   ) {
     workflowModule.triggerWorkflows("table", "database-entry-remove-trigger",
       DatabaseCondition.of("tableId", tableEntry.id()),
-      tableRemoveInformation(table, rowId));
+      tableRemoveInformation(table, rowId), false);
     return table.removeContent(rowId, tableBundleOwner);
   }
 
