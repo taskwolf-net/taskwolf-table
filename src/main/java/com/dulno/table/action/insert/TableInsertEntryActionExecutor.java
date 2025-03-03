@@ -55,7 +55,14 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
   private CompletableFuture<ActionResult> execute(
     Map<String, Object> information, TableEntry tableEntry, Table table, UUID contentId
   ) {
-    var placeholderDissolve = PlaceholderDissolve.create(information);
+    var formattedInformation = Maps.<String, Object>newHashMap();
+    for (var entry : information.entrySet()) {
+      formattedInformation.put(entry.getKey(),
+        entry.getValue().toString().replace("\\", "\\\\")
+          .replace("\"", "\\\"").replace("\b", "\\b").replace("\f", "\\f")
+          .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t"));
+    }
+    var placeholderDissolve = PlaceholderDissolve.create(formattedInformation);
     entryContent = placeholderDissolve.dissolve(entryContent);
     var cells = createCells(tableEntry, table, contentId);
     return table.insertContent(TableRow.create(errorRepository, cells))
