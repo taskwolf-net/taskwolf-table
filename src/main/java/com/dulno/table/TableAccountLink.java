@@ -2,6 +2,7 @@ package com.dulno.table;
 
 import com.dulno.core.account.AccountLink;
 import com.dulno.core.account.AccountLinkEntry;
+import com.dulno.table.structure.TableDatabaseTable;
 import com.google.common.collect.Lists;
 import lombok.RequiredArgsConstructor;
 
@@ -11,9 +12,11 @@ import java.util.concurrent.CompletableFuture;
 
 @RequiredArgsConstructor(staticName = "create")
 public final class TableAccountLink implements AccountLink {
+  private final TableDatabaseTable tableDatabaseTable;
+
   @Override
-  public CompletableFuture<Boolean> accountExists(UUID userId) {
-    return CompletableFuture.completedFuture(true);
+  public CompletableFuture<Boolean> accountExists(UUID id) {
+    return tableDatabaseTable.tableExistsByOwner(id);
   }
 
   @Override
@@ -28,7 +31,7 @@ public final class TableAccountLink implements AccountLink {
 
   @Override
   public String registrationUrl(UUID id, String apiKey) {
-    return "";
+    return "/database/create/";
   }
 
   @Override
