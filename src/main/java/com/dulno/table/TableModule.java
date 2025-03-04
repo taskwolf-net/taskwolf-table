@@ -52,7 +52,7 @@ public final class TableModule extends Integration {
     contextInitializer = TableContextInitializer.create(tableDatabaseTable,
       tableColumnDatabaseTable, tableFactory);
     springApplication.addInitializers(contextInitializer);
-    accountLink = TableAccountLink.create();
+    accountLink = TableAccountLink.create(tableDatabaseTable);
     tableComponentSelect = TableComponentSelect.create(tableDatabaseTable);
     tableColumnComponentSelect = TableColumnComponentSelect.create(
       tableDatabaseTable, tableColumnDatabaseTable);

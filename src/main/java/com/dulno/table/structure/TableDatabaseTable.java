@@ -138,6 +138,10 @@ public final class TableDatabaseTable extends DatabaseTable {
     return idView.exists(DatabaseCondition.of("id", tableId));
   }
 
+  public CompletableFuture<Boolean> tableExistsByOwner(UUID ownerId) {
+    return exists(DatabaseCondition.of("owner", ownerId));
+  }
+
   public CompletableFuture<TableEntry> findTable(String tableId) {
     return idView.selectRow(DatabaseCondition.of("id", tableId))
       .thenApply(row -> TableEntry.of(row, idView));
