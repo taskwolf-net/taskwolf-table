@@ -119,10 +119,10 @@ public final class TableFindEntriesAction implements Action<TableFindEntriesActi
   public CompletableFuture<Void> insert(
     UUID actionId, UUID ownerId, Map<String, Object> content
   ) {
-    var entryValue = content.get("entryValue");
+    var entriesValue = content.get("entriesValue");
     return contentDatabaseTable.insertContent(actionId, DatabaseRow.of(ownerId,
       content.get("tableIdentifier"), content.get("entriesColumn"),
-      entryValue == null ? "" : entryValue));
+      entriesValue == null ? "" : entriesValue));
   }
 
   @Override
