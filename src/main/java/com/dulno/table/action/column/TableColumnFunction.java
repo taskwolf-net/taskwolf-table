@@ -1,4 +1,4 @@
-package com.dulno.table.action.insert;
+package com.dulno.table.action.column;
 
 import com.dulno.core.user.User;
 import com.dulno.table.structure.*;
@@ -15,9 +15,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RequiredArgsConstructor(staticName = "create")
-public final class TableInsertEntryActionColumnFunction
-  implements DynamicInputComponentVariableFunction
-{
+public final class TableColumnFunction implements DynamicInputComponentVariableFunction {
   private final TableDatabaseTable tableDatabaseTable;
   private final TableColumnDatabaseTable tableColumnDatabaseTable;
 
@@ -69,6 +67,7 @@ public final class TableInsertEntryActionColumnFunction
     return switch (column.type()) {
       case TableColumnType.TEXT -> InputComponentDataType.TEXT;
       case TableColumnType.TEXT_AREA -> InputComponentDataType.TEXT_AREA;
+      case TableColumnType.NUMBER -> InputComponentDataType.TEXT;
       case TableColumnType.DATE -> InputComponentDataType.DATE;
       case TableColumnType.SWITCH -> InputComponentDataType.BOOLEAN;
       case TableColumnType.CHECKBOX -> InputComponentDataType.BOOLEAN;

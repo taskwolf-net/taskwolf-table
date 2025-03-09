@@ -2,6 +2,7 @@ package com.dulno.table.structure;
 
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.database.*;
+import com.dulno.core.database.aggregation.DatabaseAggregation;
 import com.dulno.core.database.condition.DatabaseCondition;
 import com.dulno.core.database.paging.DatabaseDirection;
 import com.dulno.core.database.paging.DatabaseOrder;
@@ -17,6 +18,7 @@ import com.opencsv.CSVWriter;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -177,6 +179,17 @@ public final class Table extends DatabaseTable {
 
   public CompletableFuture<Boolean> contentExists(UUID id) {
     return exists(DatabaseCondition.of("owner", entry.owner(), "id", id));
+  }
+
+  public CompletableFuture<BigDecimal> aggregateContent(
+    DatabaseAggregation aggregation, String columnId
+  ) {
+    var columnOptional = tableColumns.stream()
+      .filter(entry -> entry.id().equals(columnId)).findFirst();
+    if (columnOptional.isEmpty()) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return aggregate(aggregation, columnId);
   }
 
   private static final int MAX_PAGE_SIZE = 100;

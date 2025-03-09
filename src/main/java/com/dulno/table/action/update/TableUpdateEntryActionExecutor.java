@@ -1,4 +1,4 @@
-package com.dulno.table.action.insert;
+package com.dulno.table.action.update;
 
 import com.datastax.oss.driver.shaded.guava.common.collect.Maps;
 import com.dulno.core.database.DatabaseDataType;
@@ -17,12 +17,13 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @AllArgsConstructor(staticName = "create")
-public final class TableInsertEntryActionExecutor implements ActionExecutor {
+public final class TableUpdateEntryActionExecutor implements ActionExecutor {
   private final TableDatabaseTable tableDatabaseTable;
   private final TableFactory tableFactory;
   private final ErrorRepository errorRepository;
   private final UUID ownerId;
   private final String tableIdentifier;
+  private String entryIdentifier;
   private String entryContent;
 
   @Override
@@ -35,7 +36,7 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
     Map<String, Object> information, boolean tableExists
   ) {
     if (!tableExists) {
-      return ActionResult.futureFailure("table.action.entry.insert.failure.table.not.found");
+      return ActionResult.futureFailure("table.action.entry.update.failure.table.not.found");
     }
     return tableDatabaseTable.findTable(tableIdentifier)
       .thenCompose(tableEntry -> execute(information, tableEntry));
@@ -45,15 +46,14 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
     Map<String, Object> information, TableEntry tableEntry
   ) {
     if (!tableEntry.owner().equals(ownerId)) {
-      return ActionResult.futureFailure("table.action.entry.insert.failure.table.permission");
+      return ActionResult.futureFailure("table.action.entry.update.failure.table.permission");
     }
     return tableFactory.create(tableEntry)
-      .thenCompose(table -> table.generateAvailableContentId()
-        .thenCompose(contentId -> execute(information, tableEntry, table, contentId)));
+      .thenCompose(table -> execute(information, tableEntry, table));
   }
 
   private CompletableFuture<ActionResult> execute(
-    Map<String, Object> information, TableEntry tableEntry, Table table, UUID contentId
+    Map<String, Object> information, TableEntry tableEntry, Table table
   ) {
     var formattedInformation = Maps.<String, Object>newHashMap();
     for (var entry : information.entrySet()) {
@@ -64,22 +64,37 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
     }
     var placeholderDissolve = PlaceholderDissolve.create(formattedInformation);
     entryContent = placeholderDissolve.dissolve(entryContent);
-    var cells = createCells(tableEntry, table, contentId);
-    return table.insertContent(TableRow.create(errorRepository, cells))
-      .thenApply(success -> success ? ActionResult.success(
-        buildInformation(contentId)) :
-        ActionResult.failure("table.action.entry.insert.failure.data.limit.reached"));
+    entryIdentifier = placeholderDissolve.dissolve(entryIdentifier);
+    try {
+      var entryId = UUID.fromString(entryIdentifier);
+      return table.contentExists(entryId).thenCompose(exists ->
+        execute(tableEntry, table, entryId, exists));
+    } catch (Exception exception) {
+      return ActionResult.futureFailure("table.action.entry.update.failure.entry.wrong.format");
+    }
+  }
+
+  private CompletableFuture<ActionResult> execute(
+    TableEntry tableEntry, Table table, UUID entryId, boolean entryExists
+  ) {
+    if (!entryExists) {
+      return ActionResult.futureFailure("table.action.entry.update.failure.entry.not.found");
+    }
+    var cells = createCells(tableEntry, table, entryId);
+    return table.updateContent(entryId, TableRow.create(errorRepository, cells))
+      .thenApply(success -> success ? ActionResult.success(Maps.newHashMap()) :
+        ActionResult.failure("table.action.entry.update.failure.data.limit.reached"));
   }
 
   private List<TableCell> createCells(
-    TableEntry tableEntry, Table table, UUID contentId
+    TableEntry tableEntry, Table table, UUID entryId
   ) {
     var content = new JSONObject(entryContent);
     var tableColumns = table.tableColumns();
     var cells = Lists.<TableCell>newArrayList();
     cells.add(TableCell.create("owner", tableEntry.owner()));
     cells.add(TableCell.create("timestamp", System.currentTimeMillis()));
-    cells.add(TableCell.create("id", contentId));
+    cells.add(TableCell.create("id", entryId));
     for (var column : tableColumns) {
       cells.add(TableCell.create(column.id(), findCellValue(content, column)));
     }
@@ -103,11 +118,5 @@ public final class TableInsertEntryActionExecutor implements ActionExecutor {
       return content.getBigDecimal(column.id());
     }
     return content.getString(column.id());
-  }
-
-  private Map<String, Object> buildInformation(UUID entryId) {
-    var information = Maps.<String, Object>newHashMap();
-    information.put("entryId", entryId);
-    return information;
   }
 }

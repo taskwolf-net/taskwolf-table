@@ -12,6 +12,7 @@ import lombok.experimental.Accessors;
 public enum TableColumnType {
   TEXT (DatabaseDataType.TEXT),
   TEXT_AREA (DatabaseDataType.TEXT),
+  NUMBER (DatabaseDataType.DECIMAL),
   DATE (DatabaseDataType.TEXT),
   SWITCH (DatabaseDataType.BOOLEAN),
   CHECKBOX (DatabaseDataType.BOOLEAN);

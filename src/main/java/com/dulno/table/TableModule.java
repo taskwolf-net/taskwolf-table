@@ -4,18 +4,23 @@ import com.dulno.core.account.AccountLink;
 import com.dulno.core.database.DatabaseConnection;
 import com.dulno.core.database.DatabaseKeyspace;
 import com.dulno.core.error.ErrorRepository;
+import com.dulno.core.locale.Translation;
 import com.dulno.core.log.Log;
 import com.dulno.core.module.ModuleDescription;
 import com.dulno.core.module.ModuleInformation;
 import com.dulno.core.module.ModuleLoadPriority;
+import com.dulno.table.action.analyze.TableAnalyzeAction;
 import com.dulno.table.action.existence.TableCheckEntryExistenceAction;
 import com.dulno.table.action.find.multiple.TableFindEntriesAction;
 import com.dulno.table.action.find.single.TableFindEntryAction;
 import com.dulno.table.action.insert.TableInsertEntryAction;
 import com.dulno.table.action.remove.TableRemoveEntryAction;
+import com.dulno.table.action.update.TableUpdateEntryAction;
+import com.dulno.table.select.TableAggregationComponentSelect;
 import com.dulno.table.select.TableColumnComponentSelect;
 import com.dulno.table.select.TableComponentSelect;
 import com.dulno.table.structure.TableColumnDatabaseTable;
+import com.dulno.table.structure.TableColumnType;
 import com.dulno.table.structure.TableDatabaseTable;
 import com.dulno.table.structure.TableFactory;
 import com.dulno.table.trigger.insert.TableInsertEntryTrigger;
@@ -37,6 +42,8 @@ public final class TableModule extends Integration {
   private AccountLink accountLink;
   private InputComponentSelect tableComponentSelect;
   private InputComponentSelect tableColumnComponentSelect;
+  private InputComponentSelect numberTableColumnComponentSelect;
+  private InputComponentSelect tableAggregationComponentSelect;
 
   public TableModule(Injector injector) {
     super(injector.createChildInjector(TableInjectionModule.create()));
@@ -55,7 +62,11 @@ public final class TableModule extends Integration {
     accountLink = TableAccountLink.create(tableDatabaseTable);
     tableComponentSelect = TableComponentSelect.create(tableDatabaseTable);
     tableColumnComponentSelect = TableColumnComponentSelect.create(
-      tableDatabaseTable, tableColumnDatabaseTable);
+      tableDatabaseTable, tableColumnDatabaseTable, null);
+    numberTableColumnComponentSelect = TableColumnComponentSelect.create(
+      tableDatabaseTable, tableColumnDatabaseTable, TableColumnType.NUMBER);
+    tableAggregationComponentSelect = TableAggregationComponentSelect.create(
+      injector().getInstance(Translation.class));
   }
 
   @Override
@@ -72,7 +83,7 @@ public final class TableModule extends Integration {
 
   @Override
   public ModuleInformation moduleInformation() {
-    return ModuleInformation.create("Database", "", "database.png",
+    return ModuleInformation.create("table.module", "", "database.png",
       ModuleInformation.Type.PUBLIC);
   }
 
@@ -103,15 +114,21 @@ public final class TableModule extends Integration {
       databaseConnection, databaseKeyspace));
     repository.registerAction(TableRemoveEntryAction.create(tableComponentSelect,
       tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
+    repository.registerAction(TableUpdateEntryAction.create(tableComponentSelect,
+      tableDatabaseTable, tableColumnDatabaseTable, tableFactory, errorRepository,
+      databaseConnection, databaseKeyspace));
     repository.registerAction(TableCheckEntryExistenceAction.create(
       tableComponentSelect, tableColumnComponentSelect, tableDatabaseTable,
       tableFactory, databaseConnection, databaseKeyspace));
     repository.registerAction(TableFindEntryAction.create(tableComponentSelect,
-      tableColumnComponentSelect, tableDatabaseTable, tableFactory,
-      databaseConnection, databaseKeyspace));
+      tableColumnComponentSelect, tableDatabaseTable, tableColumnDatabaseTable,
+      tableFactory, databaseConnection, databaseKeyspace));
     repository.registerAction(TableFindEntriesAction.create(tableComponentSelect,
-      tableColumnComponentSelect, tableDatabaseTable, tableFactory,
-      databaseConnection, databaseKeyspace));
+      tableColumnComponentSelect, tableDatabaseTable, tableColumnDatabaseTable,
+      tableFactory, databaseConnection, databaseKeyspace));
+    repository.registerAction(TableAnalyzeAction.create(tableComponentSelect,
+      numberTableColumnComponentSelect, tableAggregationComponentSelect,
+      tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
     return repository;
   }
 }

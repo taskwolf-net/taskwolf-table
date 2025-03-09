@@ -15,11 +15,13 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.json.JSONObject;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.security.Key;
 import java.util.Collections;
 import java.util.List;
@@ -84,11 +86,13 @@ public final class TableModificationController extends TableController {
         cells.add(TableCell.create(column.name(), ""));
       } else if (column.dataType() == DatabaseDataType.BOOLEAN) {
         cells.add(TableCell.create(column.name(), false));
+      } else if (column.dataType() == DatabaseDataType.DECIMAL) {
+        cells.add(TableCell.create(column.name(), null));
       }
     }
     workflowModule.triggerWorkflows("table", "database-entry-insert-trigger",
       DatabaseCondition.of("tableId", tableEntry.id()),
-      tableInsertInformation(table, contentId), false);
+      tableInsertInformation(contentId), false);
     return table.insertContent(TableRow.create(errorRepository, cells))
       .thenApply(success -> finishTableEntryInsertion(success, contentId));
   }
@@ -102,9 +106,8 @@ public final class TableModificationController extends TableController {
     return  Map.of("success", true, "id", contentId);
   }
 
-  private Map<String, Object> tableInsertInformation(Table table, UUID entryId) {
+  private Map<String, Object> tableInsertInformation(UUID entryId) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("tableName", table.name());
     information.put("entryId", entryId);
     return information;
   }
@@ -119,11 +122,18 @@ public final class TableModificationController extends TableController {
     var rowId = body.getUUID("row");
     var column = body.getString("column");
     var value = body.getAny("value");
+    if (value == JSONObject.NULL)  {
+      value = null;
+    }
+    if (value instanceof Number numberValue)  {
+      value = new BigDecimal(numberValue.toString());
+    }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
+    var finalValue = value;
     performTableOperation(findUserId(request), tableId,
       tableEntry -> tableFactory.create(tableEntry)
         .thenAccept(table -> table.findContent(rowId)
-          .thenAccept(row -> updateTableEntry(table, row, rowId, column, value)
+          .thenAccept(row -> updateTableEntry(table, row, rowId, column, finalValue)
             .thenAccept(futureResponse::complete))), () -> {});
     return futureResponse;
   }
@@ -183,13 +193,12 @@ public final class TableModificationController extends TableController {
   ) {
     workflowModule.triggerWorkflows("table", "database-entry-remove-trigger",
       DatabaseCondition.of("tableId", tableEntry.id()),
-      tableRemoveInformation(table, rowId), false);
+      tableRemoveInformation(rowId), false);
     return table.removeContent(rowId, tableBundleOwner);
   }
 
-  private Map<String, Object> tableRemoveInformation(Table table, UUID entryId) {
+  private Map<String, Object> tableRemoveInformation(UUID entryId) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("tableName", table.name());
     information.put("entryId", entryId);
     return information;
   }

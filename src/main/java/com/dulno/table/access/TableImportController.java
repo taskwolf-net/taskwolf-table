@@ -27,6 +27,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.Key;
@@ -273,8 +274,16 @@ public final class TableImportController extends TableController {
       if (column.type().dataType() == DatabaseDataType.BOOLEAN) {
         return TableCell.create(column.id(), Boolean.parseBoolean(data));
       }
+      if (column.type().dataType() == DatabaseDataType.DECIMAL) {
+        return TableCell.create(column.id(), new BigDecimal(data));
+      }
       return TableCell.create(column.id(), data);
     } catch (Exception exception) {
+      if (column.type().dataType() == DatabaseDataType.BOOLEAN) {
+        return TableCell.create(column.id(), false);
+      } else if (column.type().dataType() == DatabaseDataType.DECIMAL) {
+        return TableCell.create(column.id(), null);
+      }
       return TableCell.create(column.id(), "");
     }
   }

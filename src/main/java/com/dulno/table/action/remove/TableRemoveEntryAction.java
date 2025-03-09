@@ -52,7 +52,6 @@ public final class TableRemoveEntryAction implements Action<TableRemoveEntryActi
         "tableIdentifier", "table.action.entry.remove.input.table.description", tableComponentSelect))
       .withInputVariable(InputComponentVariable.createRequired("table.action.entry.remove.input.entry.name",
         "entryIdentifier", "table.action.entry.remove.input.entry.description", InputComponentDataType.TEXT))
-      .withOutputVariable(OutputComponentVariable.create("table.action.entry.remove.output.table", "tableName"))
       .build();
   }
 
