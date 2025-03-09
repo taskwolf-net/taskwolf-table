@@ -50,7 +50,7 @@ public final class TableAnalyzeActionExecutor implements ActionExecutor {
   private CompletableFuture<ActionResult> execute(
     Map<String, Object> information, Table table
   ) {
-    if (table.columns().stream().noneMatch(column -> column.name().equals(analysisColumn))) {
+    if (table.tableColumns().stream().noneMatch(column -> column.id().equals(analysisColumn))) {
       return ActionResult.futureFailure("table.action.analyze.failure.column.not.found");
     }
     var column = table.tableColumns().stream()

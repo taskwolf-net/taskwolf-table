@@ -61,6 +61,7 @@
   "table.action.check.entry.existence.failure.table.not.found": "Bei der Überprüfung des Vorhandenseins eines Eintrags in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Datenbank nicht gefunden werden konnte.",
   "table.action.check.entry.existence.failure.table.permission": "Bei der Überprüfung des Vorhandenseins eines Eintrags in einer Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil Sie keinen Zugriff auf die ausgewählte Datenbank haben.",
   "table.action.check.entry.existence.failure.column.not.found": "Bei der Überprüfung des Vorhandenseins eines Eintrags in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Spalte nicht gefunden werden konnte.",
+  "table.action.check.entry.existence.failure.entry.wrong.format": "Bei der Überprüfung des Vorhandenseins eines Eintrags in einer Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil der angegebene Wert das falsche Format für diese Spalte hat.",
 
   "table.action.entry.find.name": "Eintrag finden",
   "table.action.entry.find.description": "Wird verwendet, um einen Datenbankeintrag zu finden",
@@ -75,6 +76,7 @@
   "table.action.entry.find.failure.table.permission": "Bei der Suche nach einem Eintrag in einer Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil Sie keinen Zugriff auf die ausgewählte Datenbank haben.",
   "table.action.entry.find.failure.column.not.found": "Bei der Suche nach einem Eintrag in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Spalte nicht gefunden werden konnte.",
   "table.action.entry.find.failure.entry.not.found": "Bei der Suche nach einem Eintrag in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil kein Eintrag gefunden werden konnte, der die Eigenschaften erfüllt.",
+  "table.action.entry.find.failure.entry.wrong.format": "Bei der Suche nach einem Eintrag aus einer Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil der angegebene Wert das falsche Format für diese Spalte hat.",
 
   "table.action.entries.find.name": "Einträge finden",
   "table.action.entries.find.description": "Wird verwendet, um mehrere Datenbankeinträge zu finden",
@@ -90,6 +92,7 @@
   "table.action.entries.find.failure.table.not.found": "Bei der Suche nach einigen Einträgen in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Datenbank nicht gefunden werden konnte.",
   "table.action.entries.find.failure.table.permission": "Bei der Suche nach einigen Einträgen in einer Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil Sie keinen Zugriff auf die ausgewählte Datenbank haben.",
   "table.action.entries.find.failure.column.not.found": "Bei der Suche nach einigen Einträgen in einer Datenbank ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Spalte nicht gefunden werden konnte.",
+  "table.action.entries.find.failure.entry.wrong.format": "Bei der Suche nach einigen Einträgen in einer Datenbank ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil der angegebene Wert das falsche Format für diese Spalte hat.",
 
   "table.aggregation.sum": "Summe",
   "table.aggregation.avg": "Durchschnitt",

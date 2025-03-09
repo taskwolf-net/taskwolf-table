@@ -1,16 +1,15 @@
 package com.dulno.table.action.existence;
 
 import com.datastax.oss.driver.shaded.guava.common.collect.Maps;
+import com.dulno.core.database.DatabaseDataType;
 import com.dulno.core.database.condition.DatabaseCondition;
-import com.dulno.table.structure.Table;
-import com.dulno.table.structure.TableDatabaseTable;
-import com.dulno.table.structure.TableEntry;
-import com.dulno.table.structure.TableFactory;
+import com.dulno.table.structure.*;
 import com.dulno.workflow.action.ActionExecutor;
 import com.dulno.workflow.action.ActionResult;
 import com.dulno.workflow.placeholder.PlaceholderDissolve;
 import lombok.AllArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -56,11 +55,32 @@ public final class TableCheckEntryExistenceActionExecutor implements ActionExecu
     var placeholderDissolve = PlaceholderDissolve.create(information);
     entryColumn = placeholderDissolve.dissolve(entryColumn);
     entryValue = placeholderDissolve.dissolve(entryValue);
-    if (table.columns().stream().noneMatch(column -> column.name().equals(entryColumn))) {
+    if (table.tableColumns().stream().noneMatch(column -> column.id().equals(entryColumn)) &&
+      !entryColumn.equals("id")
+    ) {
       return ActionResult.futureFailure("table.action.check.entry.existence.failure.column.not.found");
     }
-    return table.exists(DatabaseCondition.of(entryColumn, entryValue))
-      .thenApply(exists -> ActionResult.success(buildInformation(exists)));
+    try {
+      var condition = createDatabaseCondition(table);
+      return table.exists(condition).thenApply(exists ->
+        ActionResult.success(buildInformation(exists)));
+    } catch (Exception exception) {
+      return ActionResult.futureFailure("table.action.check.entry.existence.failure.entry.wrong.format");
+    }
+  }
+
+  private DatabaseCondition createDatabaseCondition(Table table) {
+    if (entryColumn.equals("id")) {
+      return DatabaseCondition.of(entryColumn, UUID.fromString(entryValue));
+    }
+    var column = table.tableColumns().stream()
+      .filter(tableColumn -> tableColumn.id().equals(entryColumn)).findFirst().get();
+    if (column.type().dataType() == DatabaseDataType.BOOLEAN) {
+      return DatabaseCondition.of(entryColumn, Boolean.parseBoolean(entryValue));
+    } else if (column.type().dataType() == DatabaseDataType.DECIMAL) {
+      return DatabaseCondition.of(entryColumn, new BigDecimal(entryValue));
+    }
+    return DatabaseCondition.of(entryColumn, entryValue);
   }
 
   private Map<String, Object> buildInformation(boolean exists) {

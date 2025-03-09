@@ -61,6 +61,7 @@
   "table.action.check.entry.existence.failure.table.not.found": "An error occurred while checking the existence of an entry from a database. The error occurred because the selected database could not be found.",
   "table.action.check.entry.existence.failure.table.permission": "An error occurred while checking the existence of an entry from a database. The error has occurred because you do not have access to the selected database.",
   "table.action.check.entry.existence.failure.column.not.found": "An error occurred while checking the existence of an entry from a database. The error occurred because the selected column could not be found.",
+  "table.action.check.entry.existence.failure.entry.wrong.format": "An error occurred while checking the existence of an entry from a database. The error occurred because the specified value is in the wrong format for this column.",
 
   "table.action.entry.find.name": "Find entry",
   "table.action.entry.find.description": "Is used to find a database entry",
@@ -75,6 +76,7 @@
   "table.action.entry.find.failure.table.permission": "An error occurred while finding an entry from a database. The error has occurred because you do not have access to the selected database.",
   "table.action.entry.find.failure.column.not.found": "An error occurred while finding an entry from a database. The error occurred because the selected column could not be found.",
   "table.action.entry.find.failure.entry.not.found": "An error occurred while finding an entry from a database. The error occurred because no entry could be found that fulfills the properties.",
+  "table.action.entry.find.failure.entry.wrong.format": "An error occurred while finding an entry from a database. The error occurred because the specified value is in the wrong format for this column.",
 
   "table.action.entries.find.name": "Find entries",
   "table.action.entries.find.description": "Is used to find multiple database entries",
@@ -90,6 +92,7 @@
   "table.action.entries.find.failure.table.not.found": "An error occurred while finding some entries from a database. The error occurred because the selected database could not be found.",
   "table.action.entries.find.failure.table.permission": "An error occurred while finding some entries from a database. The error has occurred because you do not have access to the selected database.",
   "table.action.entries.find.failure.column.not.found": "An error occurred while finding some entries from a database. The error occurred because the selected column could not be found.",
+  "table.action.entries.find.failure.entry.wrong.format": "An error occurred while finding some entries from a database. The error occurred because the specified value is in the wrong format for this column.",
 
   "table.aggregation.sum": "Sum",
   "table.aggregation.avg": "Average",
