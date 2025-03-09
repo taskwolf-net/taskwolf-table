@@ -1,28 +1,25 @@
-package com.dulno.table.action.existence;
+package com.dulno.table.action.analyze;
 
 import com.datastax.oss.driver.shaded.guava.common.collect.Maps;
-import com.dulno.core.database.condition.DatabaseCondition;
-import com.dulno.table.structure.Table;
-import com.dulno.table.structure.TableDatabaseTable;
-import com.dulno.table.structure.TableEntry;
-import com.dulno.table.structure.TableFactory;
+import com.dulno.core.database.aggregation.DatabaseAggregation;
+import com.dulno.table.structure.*;
 import com.dulno.workflow.action.ActionExecutor;
 import com.dulno.workflow.action.ActionResult;
-import com.dulno.workflow.placeholder.PlaceholderDissolve;
 import lombok.AllArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @AllArgsConstructor(staticName = "create")
-public final class TableCheckEntryExistenceActionExecutor implements ActionExecutor {
+public final class TableAnalyzeActionExecutor implements ActionExecutor {
   private final TableDatabaseTable tableDatabaseTable;
   private final TableFactory tableFactory;
   private final UUID ownerId;
   private final String tableIdentifier;
-  private String entryColumn;
-  private String entryValue;
+  private final String analysisColumn;
+  private final String analysisAggregation;
 
   @Override
   public CompletableFuture<ActionResult> execute(Map<String, Object> information) {
@@ -34,7 +31,7 @@ public final class TableCheckEntryExistenceActionExecutor implements ActionExecu
     Map<String, Object> information, boolean tableExists
   ) {
     if (!tableExists) {
-      return ActionResult.futureFailure("table.action.check.entry.existence.failure.table.not.found");
+      return ActionResult.futureFailure("table.action.analyze.failure.table.not.found");
     }
     return tableDatabaseTable.findTable(tableIdentifier)
       .thenCompose(tableEntry -> execute(information, tableEntry));
@@ -44,7 +41,7 @@ public final class TableCheckEntryExistenceActionExecutor implements ActionExecu
     Map<String, Object> information, TableEntry tableEntry
   ) {
     if (!tableEntry.owner().equals(ownerId)) {
-      return ActionResult.futureFailure("table.action.check.entry.existence.failure.table.permission");
+      return ActionResult.futureFailure("table.action.analyze.failure.table.permission");
     }
     return tableFactory.create(tableEntry)
       .thenCompose(table -> execute(information, table));
@@ -53,19 +50,26 @@ public final class TableCheckEntryExistenceActionExecutor implements ActionExecu
   private CompletableFuture<ActionResult> execute(
     Map<String, Object> information, Table table
   ) {
-    var placeholderDissolve = PlaceholderDissolve.create(information);
-    entryColumn = placeholderDissolve.dissolve(entryColumn);
-    entryValue = placeholderDissolve.dissolve(entryValue);
-    if (table.columns().stream().noneMatch(column -> column.name().equals(entryColumn))) {
-      return ActionResult.futureFailure("table.action.check.entry.existence.failure.column.not.found");
+    if (table.columns().stream().noneMatch(column -> column.name().equals(analysisColumn))) {
+      return ActionResult.futureFailure("table.action.analyze.failure.column.not.found");
     }
-    return table.exists(DatabaseCondition.of(entryColumn, entryValue))
-      .thenApply(exists -> ActionResult.success(buildInformation(exists)));
+    var column = table.tableColumns().stream()
+      .filter(tableColumn -> tableColumn.id().equals(analysisColumn)).findFirst().get();
+    if (column.type() != TableColumnType.NUMBER) {
+      return ActionResult.futureFailure("table.action.analyze.failure.column.type");
+    }
+    try {
+      var aggregation = DatabaseAggregation.valueOf(analysisAggregation);
+      return table.aggregateContent(aggregation, analysisColumn)
+        .thenApply(result -> ActionResult.success(buildInformation(result)));
+    } catch (Exception exception) {
+      return ActionResult.futureFailure("table.action.analyze.failure.aggregation");
+    }
   }
 
-  private Map<String, Object> buildInformation(boolean exists) {
+  private Map<String, Object> buildInformation(BigDecimal result) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("entryExists", exists);
+    information.put("analysisResult", result);
     return information;
   }
 }

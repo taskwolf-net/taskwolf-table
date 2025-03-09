@@ -47,7 +47,6 @@ public final class TableRemoveEntryTrigger implements Trigger {
       .withDescription("table.trigger.entry.remove.description")
       .withInputVariable(InputComponentVariable.createSelect("table.trigger.entry.remove.input.table.name",
         "tableIdentifier", "table.trigger.entry.remove.input.table.description", tableComponentSelect))
-      .withOutputVariable(OutputComponentVariable.create("table.trigger.entry.remove.output.table", "tableName"))
       .withOutputVariable(OutputComponentVariable.create("table.trigger.entry.remove.output.entry.id", "entryId"))
       .build();
   }
