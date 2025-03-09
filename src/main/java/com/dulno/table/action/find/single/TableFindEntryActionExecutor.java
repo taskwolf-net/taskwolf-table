@@ -10,11 +10,8 @@ import com.dulno.table.structure.TableFactory;
 import com.dulno.workflow.action.ActionExecutor;
 import com.dulno.workflow.action.ActionResult;
 import com.dulno.workflow.placeholder.PlaceholderDissolve;
-import com.google.common.collect.Lists;
 import lombok.AllArgsConstructor;
-import org.json.JSONArray;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -82,32 +79,17 @@ public final class TableFindEntryActionExecutor implements ActionExecutor {
       return ActionResult.futureFailure("table.action.entry.find.failure.entry.not.found");
     }
     return table.selectRow(condition).thenApply(row ->
-      ActionResult.success(buildInformation(table, row.findCell(2).uuidValue(),
-        createCells(table, row))));
+      ActionResult.success(buildInformation(table, row)));
   }
 
-  private List<Map<String, Object>> createCells(
-    Table table, DatabaseRow row
-  ) {
-    var cells = Lists.<Map<String, Object>>newArrayList();
-    var columns = table.tableColumns();
-    for (var i = 0; i < columns.size(); i++) {
-      cells.add(Map.of("entryCellColumn", columns.get(i).name(),
-        "entryCellValue", row.findCell(i + 3).rawValue()));
-    }
-    return cells;
-  }
-
-  private Map<String, Object> buildInformation(
-    Table table, UUID id, List<Map<String, Object>> cells
-  ) {
+  private Map<String, Object> buildInformation(Table table, DatabaseRow row) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("entryId", id);
-    information.put("entryCells", new JSONArray(cells));
-    information.put("entryCellsNumber", cells.size());
-    information.put("tableName", table.name());
-    information.put("entryColumn", entryColumn);
-    information.put("entryValue", entryValue);
+    var columns = table.tableColumns();
+    information.put("database_column_id", row.findCell(2).uuidValue());
+    for (var i = 0; i < columns.size(); i++) {
+      information.put("database_column_" + columns.get(i).id(),
+        row.findCell(i + 3).rawValue());
+    }
     return information;
   }
 }

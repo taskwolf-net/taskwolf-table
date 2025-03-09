@@ -1,6 +1,7 @@
 package com.dulno.table.action.find.multiple;
 
 import com.datastax.oss.driver.shaded.guava.common.collect.Maps;
+import com.dulno.core.database.DatabaseRow;
 import com.dulno.core.database.condition.DatabaseCondition;
 import com.dulno.table.structure.Table;
 import com.dulno.table.structure.TableDatabaseTable;
@@ -65,21 +66,25 @@ public final class TableFindEntriesActionExecutor implements ActionExecutor {
     }
     var condition = DatabaseCondition.of(entriesColumn, entriesValue);
     return table.selectRows(condition, ENTRY_LIMIT)
-      .thenApply(rows -> ActionResult.success(buildInformation(table,
-        rows.stream()
-          .map(row -> Map.of("entryId", (Object) row.findCell(2).uuidValue()))
-          .toList())));
+      .thenApply(rows -> ActionResult.success(buildInformation(rows.stream()
+        .map(row -> buildRowInformation(table, row)).toList())));
   }
 
-  private Map<String, Object> buildInformation(
-    Table table, List<Map<String, Object>> entries
-  ) {
+  private Map<String, Object> buildRowInformation(Table table, DatabaseRow row) {
+    var information = Maps.<String, Object>newHashMap();
+    var columns = table.tableColumns();
+    information.put("database_column_id", row.findCell(2).uuidValue());
+    for (var i = 0; i < columns.size(); i++) {
+      information.put("database_column_" + columns.get(i).id(),
+        row.findCell(i + 3).rawValue());
+    }
+    return information;
+  }
+
+  private Map<String, Object> buildInformation(List<Map<String, Object>> entries) {
     var information = Maps.<String, Object>newHashMap();
     information.put("entries", new JSONArray(entries));
     information.put("entriesNumber", entries.size());
-    information.put("tableName", table.name());
-    information.put("entriesColumn", entriesColumn);
-    information.put("entriesValue", entriesValue);
     return information;
   }
 }

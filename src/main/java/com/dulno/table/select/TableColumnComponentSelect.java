@@ -1,10 +1,7 @@
 package com.dulno.table.select;
 
 import com.dulno.core.user.User;
-import com.dulno.table.structure.TableColumn;
-import com.dulno.table.structure.TableColumnDatabaseTable;
-import com.dulno.table.structure.TableDatabaseTable;
-import com.dulno.table.structure.TableEntry;
+import com.dulno.table.structure.*;
 import com.dulno.workflow.component.input.InputComponentSelect;
 import com.dulno.workflow.component.input.InputComponentSelectEntry;
 import com.google.common.collect.Lists;
@@ -20,6 +17,7 @@ import java.util.concurrent.CompletableFuture;
 public class TableColumnComponentSelect implements InputComponentSelect {
   private final TableDatabaseTable tableDatabaseTable;
   private final TableColumnDatabaseTable tableColumnDatabaseTable;
+  private final TableColumnType columnType;
 
   @Override
   public CompletableFuture<List<InputComponentSelectEntry>> compile(
@@ -61,8 +59,13 @@ public class TableColumnComponentSelect implements InputComponentSelect {
     List<TableColumn> columns
   ) {
     var result = Lists.<InputComponentSelectEntry>newArrayList();
-    result.add(InputComponentSelectEntry.create("id", "id"));
+    if (columnType == null) {
+      result.add(InputComponentSelectEntry.create("id", "id"));
+    }
     for (var column : columns) {
+      if (columnType != null && column.type() != columnType) {
+        continue;
+      }
       result.add(InputComponentSelectEntry.create(column.id(), column.name()));
     }
     return result;

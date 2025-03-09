@@ -1,6 +1,7 @@
 package com.dulno.table.action.find.multiple;
 
 import com.dulno.core.database.*;
+import com.dulno.table.structure.TableColumnDatabaseTable;
 import com.dulno.table.structure.TableDatabaseTable;
 import com.dulno.table.structure.TableFactory;
 import com.dulno.workflow.action.Action;
@@ -9,11 +10,15 @@ import com.dulno.workflow.action.ActionInformation;
 import com.dulno.workflow.component.input.InputComponentDataType;
 import com.dulno.workflow.component.input.InputComponentSelect;
 import com.dulno.workflow.component.input.InputComponentVariable;
+import com.dulno.workflow.component.output.DynamicOutputComponentVariable;
 import com.dulno.workflow.component.output.ListOutputComponentVariable;
 import com.dulno.workflow.component.output.OutputComponentVariable;
 import com.google.common.collect.Lists;
 import lombok.AllArgsConstructor;
+import org.json.JSONObject;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -23,7 +28,8 @@ public final class TableFindEntriesAction implements Action<TableFindEntriesActi
   public static TableFindEntriesAction create(
     InputComponentSelect tableComponentSelect,
     InputComponentSelect tableColumnComponentSelect,
-    TableDatabaseTable tableDatabaseTable, TableFactory tableFactory,
+    TableDatabaseTable tableDatabaseTable,
+    TableColumnDatabaseTable tableColumnDatabaseTable, TableFactory tableFactory,
     DatabaseConnection databaseConnection, DatabaseKeyspace databaseKeyspace
   ) {
     var contentColumns = Lists.<DatabaseColumn>newArrayList();
@@ -31,8 +37,8 @@ public final class TableFindEntriesAction implements Action<TableFindEntriesActi
     contentColumns.add(DatabaseColumn.create("tableId", DatabaseDataType.TEXT));
     contentColumns.add(DatabaseColumn.create("column", DatabaseDataType.TEXT));
     contentColumns.add(DatabaseColumn.create("value", DatabaseDataType.TEXT));
-    return new TableFindEntriesAction(tableComponentSelect,
-      tableColumnComponentSelect, tableDatabaseTable, tableFactory,
+    return new TableFindEntriesAction(tableComponentSelect, tableColumnComponentSelect,
+      tableDatabaseTable, tableColumnDatabaseTable, tableFactory,
       ActionContentDatabaseTable.create(databaseConnection, databaseKeyspace,
         "action_database_entries_find", contentColumns));
   }
@@ -40,6 +46,7 @@ public final class TableFindEntriesAction implements Action<TableFindEntriesActi
   private final InputComponentSelect tableComponentSelect;
   private final InputComponentSelect tableColumnComponentSelect;
   private final TableDatabaseTable tableDatabaseTable;
+  private final TableColumnDatabaseTable tableColumnDatabaseTable;
   private final TableFactory tableFactory;
   private final ActionContentDatabaseTable contentDatabaseTable;
 
@@ -57,15 +64,50 @@ public final class TableFindEntriesAction implements Action<TableFindEntriesActi
         "tableIdentifier", "table.action.entries.find.input.table.description", tableComponentSelect))
       .withInputVariable(InputComponentVariable.createSelect("table.action.entries.find.input.column.name",
         "entriesColumn", "table.action.entries.find.input.column.description", tableColumnComponentSelect))
-      .withInputVariable(InputComponentVariable.createRequired("table.action.entries.find.input.value.name",
+      .withInputVariable(InputComponentVariable.createOptional("table.action.entries.find.input.value.name",
         "entriesValue", "table.action.entries.find.input.value.description", InputComponentDataType.TEXT))
       .withOutputVariable(ListOutputComponentVariable.create("table.action.entries.find.output.entries", "entries",
-        OutputComponentVariable.create("table.action.entries.find.output.entry.id", "entryId")))
+        OutputComponentVariable.create("table.action.entries.find.output.entry.id", "database_column_id"),
+        DynamicOutputComponentVariable.create(this::buildTableEntryOutputs)))
       .withOutputVariable(OutputComponentVariable.create("table.action.entries.find.output.entries.number", "entriesNumber"))
-      .withOutputVariable(OutputComponentVariable.create("table.action.entries.find.output.table", "tableName"))
-      .withOutputVariable(OutputComponentVariable.create("table.action.entries.find.output.column", "entriesColumn"))
-      .withOutputVariable(OutputComponentVariable.create("table.action.entries.find.output.value", "entriesValue"))
       .build();
+  }
+
+  private CompletableFuture<List<OutputComponentVariable>> buildTableEntryOutputs(
+    JSONObject currentContent, List<JSONObject> previousContent
+  ) {
+    try {
+      var loopList = currentContent.getString("loopList");
+      if (!loopList.matches("%step\\d+-entries%")) {
+        return CompletableFuture.completedFuture(Lists.newArrayList());
+      }
+      var stepEntryIndex = Integer.parseInt(loopList.replaceAll(
+        "%step(\\d+)-entries%", "$1"));
+      var content = new JSONObject(previousContent.stream()
+        .filter(entry -> entry.getString("kind").equals("action") &&
+          entry.getInt("index") == stepEntryIndex)
+        .findFirst().get().getString("content"));
+      var tableIdentifier = content.getString("tableIdentifier");
+      return tableDatabaseTable.tableExists(tableIdentifier)
+        .thenCompose(exists -> buildTableEntryOutputs(tableIdentifier, exists));
+    } catch (Exception exception) {
+      return CompletableFuture.completedFuture(Lists.newArrayList());
+    }
+  }
+
+  private CompletableFuture<List<OutputComponentVariable>> buildTableEntryOutputs(
+    String tableId, boolean exists
+  ) {
+    if (!exists) {
+      return CompletableFuture.completedFuture(Lists.newArrayList());
+    }
+    return tableDatabaseTable.findTable(tableId)
+      .thenCompose(table -> tableColumnDatabaseTable.findTableColumns(tableId)
+        .thenApply(columns -> columns.stream()
+          .sorted(Comparator.comparing(column -> table.columns().indexOf(column.id())))
+          .map(column -> OutputComponentVariable.create(column.name(),
+            "database_column_" + column.id()))
+          .toList()));
   }
 
   @Override
@@ -77,9 +119,10 @@ public final class TableFindEntriesAction implements Action<TableFindEntriesActi
   public CompletableFuture<Void> insert(
     UUID actionId, UUID ownerId, Map<String, Object> content
   ) {
+    var entryValue = content.get("entryValue");
     return contentDatabaseTable.insertContent(actionId, DatabaseRow.of(ownerId,
       content.get("tableIdentifier"), content.get("entriesColumn"),
-      content.get("entriesValue")));
+      entryValue == null ? "" : entryValue));
   }
 
   @Override

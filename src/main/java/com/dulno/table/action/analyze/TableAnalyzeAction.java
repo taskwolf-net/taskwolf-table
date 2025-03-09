@@ -1,4 +1,4 @@
-package com.dulno.table.action.existence;
+package com.dulno.table.action.analyze;
 
 import com.dulno.core.database.*;
 import com.dulno.table.structure.TableDatabaseTable;
@@ -6,7 +6,7 @@ import com.dulno.table.structure.TableFactory;
 import com.dulno.workflow.action.Action;
 import com.dulno.workflow.action.ActionContentDatabaseTable;
 import com.dulno.workflow.action.ActionInformation;
-import com.dulno.workflow.component.input.InputComponentDataType;
+import com.dulno.workflow.component.ComponentNovelty;
 import com.dulno.workflow.component.input.InputComponentSelect;
 import com.dulno.workflow.component.input.InputComponentVariable;
 import com.dulno.workflow.component.output.OutputComponentVariable;
@@ -18,10 +18,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @AllArgsConstructor(staticName = "create")
-public final class TableCheckEntryExistenceAction implements Action<TableCheckEntryExistenceActionExecutor> {
-  public static TableCheckEntryExistenceAction create(
+public final class TableAnalyzeAction implements Action<TableAnalyzeActionExecutor> {
+  public static TableAnalyzeAction create(
     InputComponentSelect tableComponentSelect,
     InputComponentSelect tableColumnComponentSelect,
+    InputComponentSelect tableAggregationComponentSelect,
     TableDatabaseTable tableDatabaseTable, TableFactory tableFactory,
     DatabaseConnection databaseConnection, DatabaseKeyspace databaseKeyspace
   ) {
@@ -29,36 +30,38 @@ public final class TableCheckEntryExistenceAction implements Action<TableCheckEn
     contentColumns.add(DatabaseColumn.create("ownerId", DatabaseDataType.UUID));
     contentColumns.add(DatabaseColumn.create("tableId", DatabaseDataType.TEXT));
     contentColumns.add(DatabaseColumn.create("column", DatabaseDataType.TEXT));
-    contentColumns.add(DatabaseColumn.create("value", DatabaseDataType.TEXT));
-    return new TableCheckEntryExistenceAction(tableComponentSelect,
-      tableColumnComponentSelect, tableDatabaseTable, tableFactory,
+    contentColumns.add(DatabaseColumn.create("aggregation", DatabaseDataType.TEXT));
+    return new TableAnalyzeAction(tableComponentSelect, tableColumnComponentSelect,
+      tableAggregationComponentSelect, tableDatabaseTable, tableFactory,
       ActionContentDatabaseTable.create(databaseConnection, databaseKeyspace,
-        "action_database_check_entry_existence", contentColumns));
+        "action_database_analyze", contentColumns));
   }
 
   private final InputComponentSelect tableComponentSelect;
   private final InputComponentSelect tableColumnComponentSelect;
+  private final InputComponentSelect tableAggregationComponentSelect;
   private final TableDatabaseTable tableDatabaseTable;
   private final TableFactory tableFactory;
   private final ActionContentDatabaseTable contentDatabaseTable;
 
   @Override
   public String type() {
-    return "database-check-entry-existence-action";
+    return "database-analyze-action";
   }
 
   @Override
   public ActionInformation information() {
     return ActionInformation.builder()
-      .withName("table.action.check.entry.existence.name")
-      .withDescription("table.action.check.entry.existence.description")
-      .withInputVariable(InputComponentVariable.createSelect("table.action.check.entry.existence.input.table.name",
-        "tableIdentifier", "table.action.check.entry.existence.input.table.description", tableComponentSelect))
-      .withInputVariable(InputComponentVariable.createSelect("table.action.check.entry.existence.input.column.name",
-        "entryColumn", "table.action.check.entry.existence.input.column.description", tableColumnComponentSelect))
-      .withInputVariable(InputComponentVariable.createOptional("table.action.check.entry.existence.input.value.name",
-        "entryValue", "table.action.check.entry.existence.input.value.description", InputComponentDataType.TEXT))
-      .withOutputVariable(OutputComponentVariable.create("table.action.check.entry.existence.output.exists", "entryExists"))
+      .withName("table.action.analyze.name")
+      .withDescription("table.action.analyze.description")
+      .withInputVariable(InputComponentVariable.createSelect("table.action.analyze.input.table.name",
+        "tableIdentifier", "table.action.analyze.input.table.description", tableComponentSelect))
+      .withInputVariable(InputComponentVariable.createSelect("table.action.analyze.input.column.name",
+        "analysisColumn", "table.action.analyze.input.column.description", tableColumnComponentSelect))
+      .withInputVariable(InputComponentVariable.createSelect("table.action.analyze.input.aggregation.name",
+        "analysisAggregation", "table.action.analyze.input.aggregation.description", tableAggregationComponentSelect))
+      .withOutputVariable(OutputComponentVariable.create("table.action.analyze.output.result", "analysisResult"))
+      .withNovelty(ComponentNovelty.NEW)
       .build();
   }
 
@@ -71,24 +74,23 @@ public final class TableCheckEntryExistenceAction implements Action<TableCheckEn
   public CompletableFuture<Void> insert(
     UUID actionId, UUID ownerId, Map<String, Object> content
   ) {
-    var entryValue = content.get("entryValue");
     return contentDatabaseTable.insertContent(actionId, DatabaseRow.of(ownerId,
-      content.get("tableIdentifier"), content.get("entryColumn"),
-      entryValue == null ? "" : entryValue));
+      content.get("tableIdentifier"), content.get("analysisColumn"),
+      content.get("analysisAggregation")));
   }
 
   @Override
   public CompletableFuture<Map<String, Object>> findContent(UUID triggerId) {
     return contentDatabaseTable.findContent(triggerId).thenApply(row ->
       Map.of("tableIdentifier", row.findCell(2).stringValue(),
-        "entryColumn", row.findCell(3).stringValue(),
-        "entryValue", row.findCell(4).stringValue()));
+        "analysisColumn", row.findCell(3).stringValue(),
+        "analysisAggregation", row.findCell(4).stringValue()));
   }
 
   @Override
-  public CompletableFuture<TableCheckEntryExistenceActionExecutor> build(UUID actionId) {
+  public CompletableFuture<TableAnalyzeActionExecutor> build(UUID actionId) {
     return contentDatabaseTable.findContent(actionId).thenApply(content ->
-      TableCheckEntryExistenceActionExecutor.create(tableDatabaseTable, tableFactory,
+      TableAnalyzeActionExecutor.create(tableDatabaseTable, tableFactory,
         content.findCell(1).uuidValue(), content.findCell(2).stringValue(),
         content.findCell(3).stringValue(), content.findCell(4).stringValue()));
   }
