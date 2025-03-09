@@ -67,12 +67,6 @@ public final class TableRemoveEntryActionExecutor implements ActionExecutor {
       return ActionResult.failure("table.action.entry.remove.failure.entry.not.found");
     }
     table.removeContent(entryId);
-    return ActionResult.success(buildInformation(table));
-  }
-
-  private Map<String, Object> buildInformation(Table table) {
-    var information = Maps.<String, Object>newHashMap();
-    information.put("tableName", table.name());
-    return information;
+    return ActionResult.success(Maps.newHashMap());
   }
 }

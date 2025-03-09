@@ -47,7 +47,6 @@ public final class TableInsertEntryTrigger implements Trigger {
       .withDescription("table.trigger.entry.insert.description")
       .withInputVariable(InputComponentVariable.createSelect("table.trigger.entry.insert.input.table.name",
         "tableIdentifier", "table.trigger.entry.insert.input.table.description", tableComponentSelect))
-      .withOutputVariable(OutputComponentVariable.create("table.trigger.entry.insert.output.table", "tableName"))
       .withOutputVariable(OutputComponentVariable.create("table.trigger.entry.insert.output.entry.id", "entryId"))
       .build();
   }

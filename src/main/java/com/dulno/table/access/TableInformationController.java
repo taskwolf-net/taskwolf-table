@@ -1,6 +1,7 @@
 package com.dulno.table.access;
 
 import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.core.database.aggregation.DatabaseAggregation;
 import com.dulno.core.database.paging.DatabaseDirection;
 import com.dulno.core.database.paging.DatabaseOrder;
 import com.dulno.core.database.paging.DatabasePage;
@@ -290,6 +291,40 @@ public final class TableInformationController extends TableController {
       exception.printStackTrace();
       return ResponseEntity.notFound().build();
     }
+  }
+
+  @RequestMapping(path = "/table/aggregate/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> aggregateTable(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = DulnoRequestBody.of(payload, response);
+    var aggregation = DatabaseAggregation.valueOf(body.getString("aggregation"));
+    var columnId = body.getString("column");
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    findUser(request).thenAccept(user -> performTableOperation(user,
+      body.getString("table"), entry -> tableFactory.create(entry)
+        .thenAccept(table -> aggregateTable(entry, table, aggregation, columnId)
+          .thenAccept(futureResponse::complete)),
+      () -> futureResponse.complete(Maps.newHashMap())));
+    return futureResponse;
+  }
+
+  private CompletableFuture<Map<String, Object>> aggregateTable(
+    TableEntry entry, Table table, DatabaseAggregation aggregation, String columnId
+  ) {
+    if (!entry.columns().contains(columnId)) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "errorCode", 1000));
+    }
+    var column = table.tableColumns().stream()
+      .filter(tableColumn -> tableColumn.id().equals(columnId)).findFirst().get();
+    if (column.type() != TableColumnType.NUMBER) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "errorCode", 1001));
+    }
+    return table.aggregateContent(aggregation, columnId)
+      .thenApply(result -> Map.of("success", true, "result", result));
   }
 
   private String timeMillisecondsToDate(long milliseconds) {

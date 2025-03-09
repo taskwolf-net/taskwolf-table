@@ -1,6 +1,7 @@
 package com.dulno.table.action.find.single;
 
 import com.datastax.oss.driver.shaded.guava.common.collect.Maps;
+import com.dulno.core.database.DatabaseDataType;
 import com.dulno.core.database.DatabaseRow;
 import com.dulno.core.database.condition.DatabaseCondition;
 import com.dulno.table.structure.Table;
@@ -10,11 +11,9 @@ import com.dulno.table.structure.TableFactory;
 import com.dulno.workflow.action.ActionExecutor;
 import com.dulno.workflow.action.ActionResult;
 import com.dulno.workflow.placeholder.PlaceholderDissolve;
-import com.google.common.collect.Lists;
 import lombok.AllArgsConstructor;
-import org.json.JSONArray;
 
-import java.util.List;
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -60,18 +59,17 @@ public final class TableFindEntryActionExecutor implements ActionExecutor {
     var placeholderDissolve = PlaceholderDissolve.create(information);
     entryColumn = placeholderDissolve.dissolve(entryColumn);
     entryValue = placeholderDissolve.dissolve(entryValue);
-    if (table.columns().stream().noneMatch(column -> column.name().equals(entryColumn)) ||
-      entryColumn.equalsIgnoreCase("owner")
+    if (table.tableColumns().stream().noneMatch(column -> column.id().equals(entryColumn)) &&
+      !entryColumn.equals("id")
     ) {
       return ActionResult.futureFailure("table.action.entry.find.failure.column.not.found");
     }
     try {
-      var condition = DatabaseCondition.of(entryColumn,
-        entryColumn.equalsIgnoreCase("id") ? UUID.fromString(entryValue) : entryValue);
+      var condition = createDatabaseCondition(table);
       return table.exists(condition).thenCompose(exists ->
         execute(table, condition, exists));
     } catch (Exception exception) {
-      return ActionResult.futureFailure("table.action.entry.find.failure.entry.not.found");
+      return ActionResult.futureFailure("table.action.entry.find.failure.entry.wrong.format");
     }
   }
 
@@ -82,32 +80,31 @@ public final class TableFindEntryActionExecutor implements ActionExecutor {
       return ActionResult.futureFailure("table.action.entry.find.failure.entry.not.found");
     }
     return table.selectRow(condition).thenApply(row ->
-      ActionResult.success(buildInformation(table, row.findCell(2).uuidValue(),
-        createCells(table, row))));
+      ActionResult.success(buildInformation(table, row)));
   }
 
-  private List<Map<String, Object>> createCells(
-    Table table, DatabaseRow row
-  ) {
-    var cells = Lists.<Map<String, Object>>newArrayList();
-    var columns = table.tableColumns();
-    for (var i = 0; i < columns.size(); i++) {
-      cells.add(Map.of("entryCellColumn", columns.get(i).name(),
-        "entryCellValue", row.findCell(i + 3).rawValue()));
+  private DatabaseCondition createDatabaseCondition(Table table) {
+    if (entryColumn.equals("id")) {
+      return DatabaseCondition.of(entryColumn, UUID.fromString(entryValue));
     }
-    return cells;
+    var column = table.tableColumns().stream()
+      .filter(tableColumn -> tableColumn.id().equals(entryColumn)).findFirst().get();
+    if (column.type().dataType() == DatabaseDataType.BOOLEAN) {
+      return DatabaseCondition.of(entryColumn, Boolean.parseBoolean(entryValue));
+    } else if (column.type().dataType() == DatabaseDataType.DECIMAL) {
+      return DatabaseCondition.of(entryColumn, new BigDecimal(entryValue));
+    }
+    return DatabaseCondition.of(entryColumn, entryValue);
   }
 
-  private Map<String, Object> buildInformation(
-    Table table, UUID id, List<Map<String, Object>> cells
-  ) {
+  private Map<String, Object> buildInformation(Table table, DatabaseRow row) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("entryId", id);
-    information.put("entryCells", new JSONArray(cells));
-    information.put("entryCellsNumber", cells.size());
-    information.put("tableName", table.name());
-    information.put("entryColumn", entryColumn);
-    information.put("entryValue", entryValue);
+    var columns = table.tableColumns();
+    information.put("database_column_id", row.findCell(2).uuidValue());
+    for (var i = 0; i < columns.size(); i++) {
+      information.put("database_column_" + columns.get(i).id(),
+        row.findCell(i + 3).rawValue());
+    }
     return information;
   }
 }

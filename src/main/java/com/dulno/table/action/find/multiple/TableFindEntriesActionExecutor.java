@@ -1,6 +1,8 @@
 package com.dulno.table.action.find.multiple;
 
 import com.datastax.oss.driver.shaded.guava.common.collect.Maps;
+import com.dulno.core.database.DatabaseDataType;
+import com.dulno.core.database.DatabaseRow;
 import com.dulno.core.database.condition.DatabaseCondition;
 import com.dulno.table.structure.Table;
 import com.dulno.table.structure.TableDatabaseTable;
@@ -12,6 +14,7 @@ import com.dulno.workflow.placeholder.PlaceholderDissolve;
 import lombok.AllArgsConstructor;
 import org.json.JSONArray;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -60,26 +63,50 @@ public final class TableFindEntriesActionExecutor implements ActionExecutor {
     var placeholderDissolve = PlaceholderDissolve.create(information);
     entriesColumn = placeholderDissolve.dissolve(entriesColumn);
     entriesValue = placeholderDissolve.dissolve(entriesValue);
-    if (table.columns().stream().noneMatch(column -> column.name().equals(entriesColumn))) {
+    if (table.tableColumns().stream().noneMatch(column -> column.id().equals(entriesColumn)) &&
+      !entriesColumn.equals("id")
+    ) {
       return ActionResult.futureFailure("table.action.entries.find.failure.column.not.found");
     }
-    var condition = DatabaseCondition.of(entriesColumn, entriesValue);
-    return table.selectRows(condition, ENTRY_LIMIT)
-      .thenApply(rows -> ActionResult.success(buildInformation(table,
-        rows.stream()
-          .map(row -> Map.of("entryId", (Object) row.findCell(2).uuidValue()))
-          .toList())));
+    try {
+      var condition = createDatabaseCondition(table);
+      return table.selectRows(condition, ENTRY_LIMIT)
+        .thenApply(rows -> ActionResult.success(buildInformation(rows.stream()
+          .map(row -> buildRowInformation(table, row)).toList())));
+    } catch (Exception exception) {
+      return ActionResult.futureFailure("table.action.entries.find.failure.entry.wrong.format");
+    }
   }
 
-  private Map<String, Object> buildInformation(
-    Table table, List<Map<String, Object>> entries
-  ) {
+  private DatabaseCondition createDatabaseCondition(Table table) {
+    if (entriesColumn.equals("id")) {
+      return DatabaseCondition.of(entriesColumn, UUID.fromString(entriesValue));
+    }
+    var column = table.tableColumns().stream()
+      .filter(tableColumn -> tableColumn.id().equals(entriesColumn)).findFirst().get();
+    if (column.type().dataType() == DatabaseDataType.BOOLEAN) {
+      return DatabaseCondition.of(entriesColumn, Boolean.parseBoolean(entriesValue));
+    } else if (column.type().dataType() == DatabaseDataType.DECIMAL) {
+      return DatabaseCondition.of(entriesColumn, new BigDecimal(entriesValue));
+    }
+    return DatabaseCondition.of(entriesColumn, entriesValue);
+  }
+
+  private Map<String, Object> buildRowInformation(Table table, DatabaseRow row) {
+    var information = Maps.<String, Object>newHashMap();
+    var columns = table.tableColumns();
+    information.put("database_column_id", row.findCell(2).uuidValue());
+    for (var i = 0; i < columns.size(); i++) {
+      information.put("database_column_" + columns.get(i).id(),
+        row.findCell(i + 3).rawValue());
+    }
+    return information;
+  }
+
+  private Map<String, Object> buildInformation(List<Map<String, Object>> entries) {
     var information = Maps.<String, Object>newHashMap();
     information.put("entries", new JSONArray(entries));
     information.put("entriesNumber", entries.size());
-    information.put("tableName", table.name());
-    information.put("entriesColumn", entriesColumn);
-    information.put("entriesValue", entriesValue);
     return information;
   }
 }
