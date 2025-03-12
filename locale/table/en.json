@@ -112,5 +112,21 @@
   "table.action.analyze.failure.table.permission": "An error occurred while analyzing a database column. The error has occurred because you do not have access to the selected database.",
   "table.action.analyze.failure.column.not.found": "An error occurred while analyzing a database column. The error occurred because the selected column could not be found.",
   "table.action.analyze.failure.column.type": "An error occurred while analyzing a database column. The error occurred because the column is not of type number.",
-  "table.action.analyze.failure.aggregation": "An error occurred while analyzing a database column. The error occurred because the selected analysis function could not be found."
+  "table.action.analyze.failure.aggregation": "An error occurred while analyzing a database column. The error occurred because the selected analysis function could not be found.",
+
+  "table.action.entry.flip.name": "Flip a switch or checkbox",
+  "table.action.entry.flip.description": "Is used to invert the value of a switch or a checkbox",
+  "table.action.entry.flip.input.table.name": "Database",
+  "table.action.entry.flip.input.table.description": "The database in which you want to flip the field",
+  "table.action.entry.flip.input.column.name": "Column (switch / checkbox)",
+  "table.action.entry.flip.input.column.description": "The column whose value you want to flip. Must be of type switch or checkbox",
+  "table.action.entry.flip.input.entry.name": "Entry ID",
+  "table.action.entry.flip.input.entry.description": "The id of the entry / row you want to flip",
+  "table.action.entry.flip.failure.table.not.found": "An error occurred while flipping a database column. The error occurred because the selected database could not be found.",
+  "table.action.entry.flip.failure.table.permission": "An error occurred while flipping a database column. The error has occurred because you do not have access to the selected database.",
+  "table.action.entry.flip.failure.column.not.found": "An error occurred while flipping a database column. The error occurred because the selected column could not be found.",
+  "table.action.entry.flip.failure.column.type": "An error occurred while flipping a database column. The error occurred because the column is not of type switch or checkbox.",
+  "table.action.entry.flip.failure.entry.wrong.format": "An error occurred while flipping a database column. The error occurred because the id of the entry has the wrong format.",
+  "table.action.entry.flip.failure.entry.not.found": "An error occurred while flipping a database column. The error occurred because the selected entry / row could not be found.",
+  "table.action.entry.flip.failure.data.limit.reached": "An error occurred while flipping a database column. The error has occurred because the maximum data size has been reached. No further data can be saved in a database. You can upgrade your package at any time to get additional storage."
 }

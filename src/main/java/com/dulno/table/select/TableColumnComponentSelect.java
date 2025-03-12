@@ -17,7 +17,7 @@ import java.util.concurrent.CompletableFuture;
 public class TableColumnComponentSelect implements InputComponentSelect {
   private final TableDatabaseTable tableDatabaseTable;
   private final TableColumnDatabaseTable tableColumnDatabaseTable;
-  private final TableColumnType columnType;
+  private final List<TableColumnType> columnTypes;
 
   @Override
   public CompletableFuture<List<InputComponentSelectEntry>> compile(
@@ -59,11 +59,11 @@ public class TableColumnComponentSelect implements InputComponentSelect {
     List<TableColumn> columns
   ) {
     var result = Lists.<InputComponentSelectEntry>newArrayList();
-    if (columnType == null) {
+    if (columnTypes.isEmpty()) {
       result.add(InputComponentSelectEntry.create("id", "id"));
     }
     for (var column : columns) {
-      if (columnType != null && column.type() != columnType) {
+      if (!columnTypes.isEmpty() && !columnTypes.contains(column.type())) {
         continue;
       }
       result.add(InputComponentSelectEntry.create(column.id(), column.name()));

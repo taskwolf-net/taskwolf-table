@@ -112,5 +112,21 @@
   "table.action.analyze.failure.table.permission": "Beim Analysieren einer Datenbankspalte ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil Sie keinen Zugriff auf die ausgewählte Datenbank haben.",
   "table.action.analyze.failure.column.not.found": "Beim Analysieren einer Datenbankspalte ist ein Fehler aufgetreten. Der Fehler trat auf, weil die ausgewählte Spalte nicht gefunden werden konnte.",
   "table.action.analyze.failure.column.type": "Beim Analysieren einer Datenbankspalte ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil die Spalte nicht vom Typ Zahl ist.",
-  "table.action.analyze.failure.aggregation": "Beim Analysieren einer Datenbankspalte ist ein Fehler aufgetreten. Der Fehler trat auf, weil die gewählte Analysefunktion nicht gefunden werden konnte."
+  "table.action.analyze.failure.aggregation": "Beim Analysieren einer Datenbankspalte ist ein Fehler aufgetreten. Der Fehler trat auf, weil die gewählte Analysefunktion nicht gefunden werden konnte.",
+
+  "table.action.entry.flip.name": "Einen Schalter oder ein Kästchen umlegen",
+  "table.action.entry.flip.description": "Wird verwendet, um den Wert eines Schalters oder eines Kästchen zu invertieren",
+  "table.action.entry.flip.input.table.name": "Datenbank",
+  "table.action.entry.flip.input.table.description": "Die Datenbank, in der Sie das Feld umdrehen wollen",
+  "table.action.entry.flip.input.column.name": "Spalte (Schalter / Kästchen)",
+  "table.action.entry.flip.input.column.description": "Die Spalte, deren Wert Sie umkehren möchten. Muss vom Typ Schalter oder Kästchen sein",
+  "table.action.entry.flip.input.entry.name": "Eintrags ID",
+  "table.action.entry.flip.input.entry.description": "Die ID des Eintrags / der Zeile, die Sie umdrehen möchten",
+  "table.action.entry.flip.failure.table.not.found": "Beim Umdrehen einer Datenbankspalte ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil die ausgewählte Datenbank nicht gefunden werden konnte.",
+  "table.action.entry.flip.failure.table.permission": "Beim Umdrehen einer Datenbankspalte ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil Sie keinen Zugriff auf die ausgewählte Datenbank haben.",
+  "table.action.entry.flip.failure.column.not.found": "Beim Umdrehen einer Datenbankspalte ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil die ausgewählte Spalte nicht gefunden werden konnte.",
+  "table.action.entry.flip.failure.column.type": "Beim Umdrehen einer Datenbankspalte ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil die Spalte nicht vom Typ Schalter oder Kontrollkästchen ist.",
+  "table.action.entry.flip.failure.entry.wrong.format": "Beim Umdrehen einer Datenbankspalte ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil die ID des Eintrags das falsche Format hat.",
+  "table.action.entry.flip.failure.entry.not.found": "Beim Umdrehen einer Datenbankspalte ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil der ausgewählte Eintrag / die ausgewählte Zeile nicht gefunden werden konnte.",
+  "table.action.entry.flip.failure.data.limit.reached": "Beim Umdrehen einer Datenbankspalte ist ein Fehler aufgetreten. Der Fehler ist aufgetreten, weil die maximale Datengröße erreicht wurde. Es können keine weiteren Daten in einer Datenbank gespeichert werden. Sie können Ihr Paket jederzeit aktualisieren, um zusätzlichen Speicherplatz zu erhalten."
 }
