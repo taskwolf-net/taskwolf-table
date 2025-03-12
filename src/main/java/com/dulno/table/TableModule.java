@@ -13,6 +13,7 @@ import com.dulno.table.action.analyze.TableAnalyzeAction;
 import com.dulno.table.action.existence.TableCheckEntryExistenceAction;
 import com.dulno.table.action.find.multiple.TableFindEntriesAction;
 import com.dulno.table.action.find.single.TableFindEntryAction;
+import com.dulno.table.action.flip.TableFlipEntryAction;
 import com.dulno.table.action.insert.TableInsertEntryAction;
 import com.dulno.table.action.remove.TableRemoveEntryAction;
 import com.dulno.table.action.update.TableUpdateEntryAction;
@@ -43,6 +44,7 @@ public final class TableModule extends Integration {
   private InputComponentSelect tableComponentSelect;
   private InputComponentSelect tableColumnComponentSelect;
   private InputComponentSelect numberTableColumnComponentSelect;
+  private InputComponentSelect flipTableColumnComponentSelect;
   private InputComponentSelect tableAggregationComponentSelect;
 
   public TableModule(Injector injector) {
@@ -62,9 +64,13 @@ public final class TableModule extends Integration {
     accountLink = TableAccountLink.create(tableDatabaseTable);
     tableComponentSelect = TableComponentSelect.create(tableDatabaseTable);
     tableColumnComponentSelect = TableColumnComponentSelect.create(
-      tableDatabaseTable, tableColumnDatabaseTable, null);
+      tableDatabaseTable, tableColumnDatabaseTable, Lists.newArrayList());
     numberTableColumnComponentSelect = TableColumnComponentSelect.create(
-      tableDatabaseTable, tableColumnDatabaseTable, TableColumnType.NUMBER);
+      tableDatabaseTable, tableColumnDatabaseTable,
+      Lists.newArrayList(TableColumnType.NUMBER));
+    flipTableColumnComponentSelect = TableColumnComponentSelect.create(
+      tableDatabaseTable, tableColumnDatabaseTable,
+      Lists.newArrayList(TableColumnType.SWITCH, TableColumnType.CHECKBOX));
     tableAggregationComponentSelect = TableAggregationComponentSelect.create(
       injector().getInstance(Translation.class));
   }
@@ -129,6 +135,9 @@ public final class TableModule extends Integration {
     repository.registerAction(TableAnalyzeAction.create(tableComponentSelect,
       numberTableColumnComponentSelect, tableAggregationComponentSelect,
       tableDatabaseTable, tableFactory, databaseConnection, databaseKeyspace));
+    repository.registerAction(TableFlipEntryAction.create(tableComponentSelect,
+      flipTableColumnComponentSelect, tableDatabaseTable, tableFactory,
+      errorRepository, databaseConnection, databaseKeyspace));
     return repository;
   }
 }

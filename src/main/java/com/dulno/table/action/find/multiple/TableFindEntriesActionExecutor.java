@@ -4,10 +4,7 @@ import com.datastax.oss.driver.shaded.guava.common.collect.Maps;
 import com.dulno.core.database.DatabaseDataType;
 import com.dulno.core.database.DatabaseRow;
 import com.dulno.core.database.condition.DatabaseCondition;
-import com.dulno.table.structure.Table;
-import com.dulno.table.structure.TableDatabaseTable;
-import com.dulno.table.structure.TableEntry;
-import com.dulno.table.structure.TableFactory;
+import com.dulno.table.structure.*;
 import com.dulno.workflow.action.ActionExecutor;
 import com.dulno.workflow.action.ActionResult;
 import com.dulno.workflow.placeholder.PlaceholderDissolve;
@@ -97,10 +94,23 @@ public final class TableFindEntriesActionExecutor implements ActionExecutor {
     var columns = table.tableColumns();
     information.put("database_column_id", row.findCell(2).uuidValue());
     for (var i = 0; i < columns.size(); i++) {
-      information.put("database_column_" + columns.get(i).id(),
-        row.findCell(i + 3).rawValue());
+      var column = columns.get(i);
+      var value = row.findCell(i + 3).rawValue();
+      if (value == null) {
+        value = findDefaultValue(column);
+      }
+      information.put("database_column_" + column.id(), value);
     }
     return information;
+  }
+
+  private Object findDefaultValue(TableColumn column) {
+    if (column.type().dataType() == DatabaseDataType.BOOLEAN) {
+      return false;
+    } else if (column.type().dataType() == DatabaseDataType.DECIMAL) {
+      return 0;
+    }
+    return "";
   }
 
   private Map<String, Object> buildInformation(List<Map<String, Object>> entries) {
