@@ -1,0 +1,21 @@
+package net.taskwolf.table.structure;
+
+import net.taskwolf.core.database.DatabaseDataType;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
+
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+public enum TableColumnType {
+  TEXT (DatabaseDataType.TEXT),
+  TEXT_AREA (DatabaseDataType.TEXT),
+  NUMBER (DatabaseDataType.DECIMAL),
+  DATE (DatabaseDataType.TEXT),
+  SWITCH (DatabaseDataType.BOOLEAN),
+  CHECKBOX (DatabaseDataType.BOOLEAN);
+
+  private final DatabaseDataType dataType;
+}
